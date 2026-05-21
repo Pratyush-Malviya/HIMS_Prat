@@ -1,0 +1,6 @@
+{
+  "name": "AI-Powered HIMS",
+  "description": "An AI-powered Hospital Information Management System integrating clinical workflows, real-time vitals monitoring, bed occupancy forecasting, and smart automated reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
