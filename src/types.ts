@@ -156,6 +156,47 @@ export interface CustomRole {
   defaultPermittedModules: string[];
 }
 
+export interface PainPointSlide {
+  id: string;
+  title: string;
+  category: string;
+  problemBadge: string;
+  problemTitle: string;
+  problemDesc: string;
+  problemImage: string;
+  solutionBadge: string;
+  solutionTitle: string;
+  solutionDesc: string;
+  solutionImage: string;
+  metricValue: string;
+  metricLabel: string;
+  remedyBullets: string[];
+}
+
+export interface FeatureModule {
+  id: string;
+  title: string;
+  badge: string;
+  desc: string;
+  imageUrl: string;
+  points: string[];
+}
+
+export interface LandingPageConfig {
+  fontFamily: "Inter" | "Space Grotesk" | "Playfair Display" | "JetBrains Mono";
+  primaryColor: "emerald" | "indigo" | "teal" | "sky" | "blue" | "violet" | "rose";
+  backgroundColorMode: "light" | "slate" | "stone" | "zinc";
+  announcementText: string;
+  heroHeaderPart1: string;
+  heroHeaderPart2: string;
+  heroSubheadline: string;
+  heroButtonLeftText: string;
+  heroButtonRightText: string;
+  heroImage: string;
+  painPointsSlides: PainPointSlide[];
+  featuresList: FeatureModule[];
+}
+
 export interface HIMSStore {
   patients: Patient[];
   appointments: Appointment[];
@@ -170,6 +211,7 @@ export interface HIMSStore {
   notifications: NotificationAlert[];
   employees: Employee[];
   customRoles: CustomRole[];
+  landingPageConfig: LandingPageConfig;
   markNotificationAsRead: (id: string) => void;
   clearNotifications: () => void;
   onboardEmployee: (emp: Employee) => void;
@@ -177,4 +219,5 @@ export interface HIMSStore {
   removeEmployee: (id: string) => void;
   addCustomRole: (role: CustomRole) => void;
   removeCustomRole: (id: string) => void;
+  updateLandingPageConfig: (config: Partial<LandingPageConfig>) => void;
 }

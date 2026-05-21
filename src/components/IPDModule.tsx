@@ -243,12 +243,13 @@ export function IPDModule({ store }: IPDModuleProps) {
         const isAnomaly = latestVital?.isAnomaly;
         const o2Sat = latestVital?.spO2;
         const hr = latestVital?.heartRate;
+        // Determine high risk: Tachycardic (>125), Hypoxic (<95), anomaly flag, or critical condition keyword
         const isHighRisk = isAnomaly || (o2Sat && o2Sat < 95) || (hr && (hr < 50 || hr > 125)) || adm.admittingDiagnosis.toLowerCase().includes("sepsis") || adm.admittingDiagnosis.toLowerCase().includes("trauma");
         
         // Find matching pending labs
         const pendingLabs = store.labTests.filter(
           (test) => test.patientId === adm.patientId && test.status !== "Completed"
-        ).map(t => t.testName);
+        ).map(t => `${t.testName} (Status: ${t.status})`);
 
         return {
           name: adm.patientName,
@@ -256,28 +257,31 @@ export function IPDModule({ store }: IPDModuleProps) {
           bed: adm.bedNumber,
           diagnosis: adm.admittingDiagnosis,
           admittingDoctor: adm.admittingDoctor,
-          latestVitals: latestVital ? `HR: ${latestVital.heartRate} bpm, BP: ${latestVital.bloodPressure}, SpO2: ${latestVital.spO2}%` : "No vitals recently logged",
-          pendingLabs: pendingLabs.length > 0 ? pendingLabs.join(", ") : "None",
-          highRiskStatus: isHighRisk ? "YES - HIGH RISK" : "No"
+          latestVitals: latestVital ? `Heart Rate: ${latestVital.heartRate} bpm, BP: ${latestVital.bloodPressure}, SpO2: ${latestVital.spO2}%` : "No vitals recently logged",
+          pendingLabsCount: pendingLabs.length,
+          pendingLabsList: pendingLabs.length > 0 ? pendingLabs.join(", ") : "None",
+          highRiskLevel: isHighRisk ? "YES - CRITICAL HIGH-RISK ALERT (Tachycardia/Hypoxia/Anomaly check needed)" : "No"
         };
       });
 
-      const prompt = `Act as an expert head nurse and clinical coordinator. Compile a highly concise HIMS Shift Handover Briefing Report.
-      
-Handover Protocol Details:
+      const prompt = `Act as an expert head nurse and clinical coordinator. Compile a comprehensive, clinically rigorous Hospital Information Management System (HIMS) Shift Handover SBAR Briefing Report in markdown format.
+
+Handover Parameters:
 - Outgoing Operator: ${handoverFrom}
 - Incoming Operator: ${handoverTo}
 - Transition Shift Cycle: ${handoverShift}
 - Floor Coordination / Operational Notes: "${handoverAddNotes || "Routine hand-off"}"
 
-Active Patient SBAR (Situation, Background, Assessment, Recommendation) Details to aggregate:
+Active Patient Manifest Data to parse:
 ${JSON.stringify(patientDetails, null, 2)}
 
-Please formatting a professional clinical shift briefing document in neat markdown with clear headers, bold accents, and summary boxes. Highlights:
-1. High-Risk Patients that require immediate monitoring or hourly alarms.
-2. Pending Lab Tests that the incoming shift needs to follow up on.
-3. Specific bed allocation changes or upcoming discharge priorities.
-Keep the advice actionable, precise, and styled professionally for immediate clinical reading. Do not show raw JSON.`;
+Please structures your compiled briefing strictly into the standard SBAR (Situation, Background, Assessment, Recommendation) framework:
+- **S (Situation)**: High-level overview of Wards, total inpatient census count, absolute number of high-risk cases identified, and total outstanding laboratory workups.
+- **B (Background)**: Admission breakdowns, critical diagnosis alerts (e.g., Sepsis, Trauma, acute post-operative statuses), and primary physician coverages.
+- **A (Assessment)**: Detailed physiological analysis of high-risk patients. Call out any patients with tachycardic vitals (heart rate > 125 bpm) or hypoxic vitals (oxygen saturation SpO2 < 95%), stating their exact bed allocations.
+- **R (Recommendation)**: Clear, bulleted action items for the incoming team during this shift cycle. Specify follow-up trackers for ALL pending laboratory test orders, hourly biometric chart targets, and bed management allocations.
+
+Use professional markdown tables or checklists. Keep the output clinical, structured, and immediately actionable for clinical staff. Do not output raw JSON or code blocks.`;
 
       const response = await askAlexChat([{ role: "user", content: prompt }]);
       setAiHandoverReport(response.text || "Failed to parse handover report.");
@@ -1073,10 +1077,11 @@ Keep the advice actionable, precise, and styled professionally for immediate cli
                 <button
                   onClick={handleGenerateHandover}
                   disabled={generatingHandover}
-                  className="bg-slate-900 border border-slate-800 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2 cursor-pointer transition-all hover:bg-slate-800"
+                  className="bg-slate-900 border border-slate-800 text-white text-xs px-4 py-2.5 rounded-lg font-semibold flex items-center gap-2 cursor-pointer transition-all hover:bg-slate-800 shadow-sm"
+                  id="btn_ipd_generate_briefing"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  {generatingHandover ? "Compiling briefing metrics..." : "Generate AI Handover Briefing"}
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                  {generatingHandover ? "Compiling briefing..." : "Generate Briefing"}
                 </button>
               </div>
             </div>
@@ -1110,7 +1115,7 @@ Keep the advice actionable, precise, and styled professionally for immediate cli
                       <div 
                         key={adm.id} 
                         className={`p-4 rounded-xl border transition-all text-xs text-left text-slate-700 ${
-                          isHighRisk ? "bg-red-50/40 border-red-150 shadow-sm" : "bg-white border-slate-100 hover:border-slate-200"
+                          isHighRisk ? "bg-red-50/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] ring-1 ring-red-500/20 animate-pulse-subtle" : "bg-white border-slate-100 hover:border-slate-200"
                         }`}
                       >
                         <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
@@ -1118,8 +1123,8 @@ Keep the advice actionable, precise, and styled professionally for immediate cli
                             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                               {adm.patientName} 
                               {isHighRisk && (
-                                <span className="bg-red-600 text-white font-mono font-bold text-[8px] tracking-wider px-2 py-0.5 rounded-full inline-flex items-center gap-1 animate-pulse">
-                                  <AlertCircle className="w-2.5 h-2.5" /> HIGH RISK ALERT
+                                <span className="bg-red-600 text-white font-mono font-bold text-[9px] tracking-wider uppercase px-2 py-0.5 rounded inline-flex items-center gap-1">
+                                  <AlertCircle className="w-2.5 h-2.5" /> High-Risk
                                 </span>
                               )}
                             </h4>
@@ -1227,7 +1232,7 @@ Keep the advice actionable, precise, and styled professionally for immediate cli
                       className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
                       id="btn_print_handover_brief"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download Report (PDF)
+                      <Download className="w-3.5 h-3.5" /> Download PDF Report
                     </button>
                     <button
                       onClick={() => setAiHandoverReport(null)}

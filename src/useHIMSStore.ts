@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole } from "./types";
+import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole, LandingPageConfig, PainPointSlide, FeatureModule } from "./types";
 import { db } from "./firebase";
 import { collection, getDocs, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 
@@ -32,6 +32,163 @@ const initialCustomRoles: CustomRole[] = [
   { id: "role-3", name: "Operations Supervisor", defaultDepartment: "Database Admin", defaultPermittedModules: ["dashboard", "admin", "finance"] }
 ];
 
+const defaultLandingPageConfig: LandingPageConfig = {
+  fontFamily: "Space Grotesk",
+  primaryColor: "emerald",
+  backgroundColorMode: "light",
+  announcementText: "HIPAA Certification Assured • AES-256 Symmetric Encryption Vault Built-In • Zero Upfront Setup Fees",
+  heroHeaderPart1: "Erase Critical Health Handoff Delays,",
+  heroHeaderPart2: "With Secure, Closed-Loop Workstations",
+  heroSubheadline: "Automate clinician shift SBAR summaries, track ward bed occupancy in real-time, and block inventory leakage — built strictly to prevent medical errors and protect vital patient records.",
+  heroButtonLeftText: "Boot Secure Workstation",
+  heroButtonRightText: "Request Guided Demo",
+  heroImage: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80",
+  painPointsSlides: [
+    {
+      id: "slide-1",
+      title: "Clinician Burnout & Paper Shift Scribes",
+      category: "STAFF RETENTION & TRANSITION ERAS",
+      problemBadge: "🔴 PREVALENT CRISIS: DIZZY HANDOFFS",
+      problemTitle: "Nurses spend over 4 hours/shift manually writing handover logs",
+      problemDesc: "Rushed scribbles get lost. Shifts overlap with chaotic spoken huddles, leading to dangerous medical treatment misunderstandings.",
+      problemImage: "https://images.unsplash.com/photo-1579684389782-64d84b5e9053?auto=format&fit=crop&w=700&q=80",
+      solutionBadge: "🟢 THE MEDIFLOW AID: AUTOMATED CLINICAL SBAR SUMMARY",
+      solutionTitle: "Generate complete standardized SBAR summaries instantly",
+      solutionDesc: "Smart algorithms compile bed telemetry, diagnosis classifications, and active medication logs into a compliant shift briefing draft in 30 seconds.",
+      solutionImage: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=700&q=80",
+      metricValue: "98.4%",
+      metricLabel: "Transcription Error Reduction Rate",
+      remedyBullets: [
+        "Cut shift transition training from 45 min to 30 seconds",
+        "Empower clinicians to return to bedside clinical care",
+        "Enforce absolute clinical transfer compliance automatically"
+      ]
+    },
+    {
+      id: "slide-2",
+      title: "Blind Intake Sync & Bed Allocation Delays",
+      category: "WARD CAPACITY LEAKAGE",
+      problemBadge: "🔴 PREVALENT CRISIS: DIAL-A-BED CHAOS",
+      problemTitle: "Admissions officers lack live bed metrics on active wards",
+      problemDesc: "Nurses endure back-and-forth intercom calls. Outpatients wait in ER entryways while empty beds sit unlogged on other floors.",
+      problemImage: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=700&q=80",
+      solutionBadge: "🟢 THE MEDIFLOW AID: DYNAMIC 1-CLICK BED TRACKING",
+      solutionTitle: "Visual bed map tracks occupancy globally in real-time",
+      solutionDesc: "Dispatch admissions to general, ICU, or recovery rooms instantly on an interactive live grid. Automatically trigger cleanup dispatches on discharge.",
+      solutionImage: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=700&q=80",
+      metricValue: "+18%",
+      metricLabel: "Daily Inpatient Capacity Yield Boost",
+      remedyBullets: [
+        "Eliminate non-clinical dispatch coordination calls totally",
+        "Red-tag alert highlights for direct critical monitoring needs",
+        "Audit logs capture discharge timestamps for regulatory review"
+      ]
+    },
+    {
+      id: "slide-3",
+      title: "Prescription Pilferage & Hidden Stock Leakage",
+      category: "REVENUE LOSS prevention",
+      problemBadge: "🔴 PREVALENT CRISIS: DISPENSARY GAPS",
+      problemTitle: "Medication stocks decrease without doctor orders matched",
+      problemDesc: "Unit items disperse without e-signature verification. Crucial batches dry out or exceed expiry silently. Invoices fail to reflect true usage.",
+      problemImage: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=700&q=80",
+      solutionBadge: "🟢 THE MEDIFLOW AID: CLOSED-LOOP RX RECORDING",
+      solutionTitle: "Symmetric connection of prescriptions to inventory",
+      solutionDesc: "The stock cupboard auto-deducts doses upon pharmacist verification. Safety reorder alerts trigger before base essentials dip below custom thresholds.",
+      solutionImage: "https://images.unsplash.com/photo-1587854692152-cbe660db0969?auto=format&fit=crop&w=700&q=80",
+      metricValue: "$4.5K",
+      metricLabel: "Avg. Month Inventory Leakage Recovered",
+      remedyBullets: [
+        "Block stale batch utilization with active expiration checkups",
+        "E-signatures ensure accountability across clinical shifts",
+        "Zero-gap patient invoices compile direct from provider checklists"
+      ]
+    },
+    {
+      id: "slide-4",
+      title: "Insecure Messaging & Heavy HIPAA Audit Fines",
+      category: "DATA PROTECTION RISK",
+      problemBadge: "🔴 PREVALENT CRISIS: UNENCRYPTED CHATS",
+      problemTitle: "Nurses slide PHI records into unsecure phone app chats",
+      problemDesc: "Sharing laboratory findings or consult histories across non-compliant messengers creates extreme data leakage vulnerabilities.",
+      problemImage: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=700&q=80",
+      solutionBadge: "🟢 THE MEDIFLOW AID: IMMUTABLE AUDIT LEDGER & RBAC",
+      solutionTitle: "AES-256 cloud record vault with granular security",
+      solutionDesc: "Isolate Protected Health Information (PHI). Lock interfaces down according to precise operational authorization levels. Trace all log readings.",
+      solutionImage: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=700&q=80",
+      metricValue: "100%",
+      metricLabel: "Audit Trail Readiness Guarantee",
+      remedyBullets: [
+        "All data protected with AES-256 at-rest & in-transit standards",
+        "Signed HIPAA Business Associate Agreement (BAA) support",
+        "Track actor identities and view actions with permanent logs"
+      ]
+    }
+  ],
+  featuresList: [
+    {
+      id: "feat-1",
+      title: "Granular Role-Based Access Control",
+      badge: "HIPAA SECURED AT CORE",
+      desc: "Stop cross-role data leaks. Pre-configured, compliant permissions align perfectly to standard hospital operations hierarchies.",
+      imageUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=600&q=80",
+      points: [
+        "MD Physicians: Write diagnostic SOAP entries, dispatch lab orders, and authorise scripts.",
+        "Ward Nurses: Record core telemetry, evaluate bed statuses, and trigger shift handoffs.",
+        "Pharmacists: Approve electronic scripts, view inventory logs, and deduct units."
+      ]
+    },
+    {
+      id: "feat-2",
+      title: "Seamless Outpatient Consultation Tool",
+      badge: "MAXIMIZE CLINIC THROUGHPUT",
+      desc: "Erase administrative drag. Draft SOAP records, pull up diagnostic catalogs, and transmit orders from a single elegant interface.",
+      imageUrl: "https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?auto=format&fit=crop&w=600&q=80",
+      points: [
+        "Smart Form Guide: Speeds up Subjective, Objective, Assessment, and Plan drafting.",
+        "ICD-10 Search Integration: Diagnostic accuracy at the point of care.",
+        "Direct Lab Sync: Instantly request pathology screens with status alerts."
+      ]
+    },
+    {
+      id: "feat-3",
+      title: "Inpatient Wards & Occupancy Grid",
+      badge: "ELIMINATE EMPTY BED OVERHEAD",
+      desc: "Live visibility over ICU, Pediatric, and Recovery chambers. Erase coordination noise and control bed turnover smoothly.",
+      imageUrl: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=600&q=80",
+      points: [
+        "Responsive Map Grid: Identify unoccupied, scheduled, and dirty bed units at a glance.",
+        "SBAR Transition Tool: Autoconsolidate telemetry for flawless doctor handovers.",
+        "Intake Prioritization: Flag urgent needs with visual emergency markers."
+      ]
+    },
+    {
+      id: "feat-4",
+      title: "Closed-Loop Pharmacy Depot Sync",
+      badge: "PREVENT CRITICAL DRUG PILFERAGE",
+      desc: "Connect your medicine shelves directly to patient checkouts. Keep dosage trails verified and auto-detect stock depletion.",
+      imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
+      points: [
+        "Stock Depletion Alerts: Prompt warning thresholds dynamically configured for key medicines.",
+        "Dispensing Sanity Engine: Strict automated checks lock out expired batches index-wide.",
+        "Real-Time Balancing: Matches prescription fulfillment to bed checkout billing charts automatically."
+      ]
+    },
+    {
+      id: "feat-5",
+      title: "Compliant HIPAA Protective Shield",
+      badge: "IMPREGNABLE DATA SECURITY",
+      desc: "Architected around strict clinical audit procedures. Enforce modern transport and storage encryption automatically.",
+      imageUrl: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=600&q=80",
+      points: [
+        "Secure Storage standard: Active row-level data segregation ensures bulletproof isolation.",
+        "Global Actor Logging: Track exact credential footprints during any database interaction.",
+        "Executive Reports: Print audit-ready ledger certificates for licensing regulators."
+      ]
+    }
+  ]
+};
+
 export function useHIMSStore() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -46,6 +203,7 @@ export function useHIMSStore() {
   const [notifications, setNotifications] = useState<NotificationAlert[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+  const [landingPageConfig, setLandingPageConfig] = useState<LandingPageConfig>(defaultLandingPageConfig);
   const [loading, setLoading] = useState(true);
 
   // Initialize and load state
@@ -67,6 +225,7 @@ export function useHIMSStore() {
         setNotifications(parsed.notifications || []);
         setEmployees(parsed.employees || initialEmployees);
         setCustomRoles(parsed.customRoles || initialCustomRoles);
+        setLandingPageConfig(parsed.landingPageConfig || defaultLandingPageConfig);
       } else {
         // Load defaults
         setPatients(initialPatients);
@@ -82,6 +241,7 @@ export function useHIMSStore() {
         setNotifications([]);
         setEmployees(initialEmployees);
         setCustomRoles(initialCustomRoles);
+        setLandingPageConfig(defaultLandingPageConfig);
  
         localStorage.setItem(
           STORAGE_KEY,
@@ -98,7 +258,8 @@ export function useHIMSStore() {
             auditLogs: initialAuditLogs,
             notifications: [],
             employees: initialEmployees,
-            customRoles: initialCustomRoles
+            customRoles: initialCustomRoles,
+            landingPageConfig: defaultLandingPageConfig
           })
         );
       }
@@ -124,6 +285,7 @@ export function useHIMSStore() {
     notifications?: NotificationAlert[];
     employees?: Employee[];
     customRoles?: CustomRole[];
+    landingPageConfig?: LandingPageConfig;
   }) => {
     const currentState = {
       patients: updated.patients ?? patients,
@@ -138,7 +300,8 @@ export function useHIMSStore() {
       auditLogs: updated.auditLogs ?? auditLogs,
       notifications: updated.notifications ?? notifications,
       employees: updated.employees ?? employees,
-      customRoles: updated.customRoles ?? customRoles
+      customRoles: updated.customRoles ?? customRoles,
+      landingPageConfig: updated.landingPageConfig ?? landingPageConfig
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
@@ -156,6 +319,12 @@ export function useHIMSStore() {
     if (updated.notifications) setNotifications(updated.notifications);
     if (updated.employees) setEmployees(updated.employees);
     if (updated.customRoles) setCustomRoles(updated.customRoles);
+    if (updated.landingPageConfig) setLandingPageConfig(updated.landingPageConfig);
+  };
+
+  const updateLandingPageConfig = (configUpdates: Partial<LandingPageConfig>) => {
+    const nextConfig = { ...landingPageConfig, ...configUpdates };
+    saveState({ landingPageConfig: nextConfig });
   };
 
   const createLog = (user: string, role: string, action: string, dept: string, details: string) => {
@@ -764,7 +933,9 @@ export function useHIMSStore() {
     customRoles,
     addCustomRole,
     removeCustomRole,
-    syncFirestoreData
+    syncFirestoreData,
+    landingPageConfig,
+    updateLandingPageConfig
   };
 }
 export type HIMSStore = ReturnType<typeof useHIMSStore>;

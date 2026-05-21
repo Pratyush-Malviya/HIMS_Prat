@@ -252,6 +252,7 @@ export default function App() {
   if (viewMode === "saas") {
     return (
       <SaaSLandingPage 
+        store={store}
         onLaunchApp={(signUpMode) => {
           setViewMode("app");
           setInitialSignUp(!!signUpMode);
@@ -350,7 +351,8 @@ export default function App() {
         { id: "admin", subId: "directory", label: "HR Staff Directory", icon: Users, desc: "Personnel records registry" },
         { id: "admin", subId: "roles", label: "Custom RBAC Architect", icon: ShieldCheck, desc: "Design clinical custom roles" },
         { id: "admin", subId: "logs", label: "Security Audit Trails", icon: FileSpreadsheet, desc: "HIPAA complaint log audit" },
-        { id: "admin", subId: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "Database gauges & sandbox" }
+        { id: "admin", subId: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "Database gauges & sandbox" },
+        { id: "admin", subId: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage SaaS styles, texts & images" }
       ]
     }
   ];

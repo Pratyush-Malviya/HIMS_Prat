@@ -21,7 +21,13 @@ import {
   Clock,
   CheckCircle2,
   ListCollapse,
-  Server
+  Server,
+  Sparkles,
+  Palette,
+  FileText,
+  Check,
+  Edit2,
+  Image as ImageIcon
 } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
 import { getSecondaryAuth, db, handleFirestoreError, OperationType } from "../firebase";
@@ -61,6 +67,68 @@ export function AdminModule({
     removeCustomRole
   } = store;
 
+  // Dynamic temporary states for Landing Page CMS Edit
+  const { landingPageConfig, updateLandingPageConfig } = store;
+
+  // Primary CMS fields state bindings
+  const [fontFamily, setFontFamily] = useState(landingPageConfig.fontFamily);
+  const [primaryColor, setPrimaryColor] = useState(landingPageConfig.primaryColor);
+  const [backgroundColorMode, setBackgroundColorMode] = useState(landingPageConfig.backgroundColorMode);
+  
+  const [announcementText, setAnnouncementText] = useState(landingPageConfig.announcementText);
+  const [heroHeaderPart1, setHeroHeaderPart1] = useState(landingPageConfig.heroHeaderPart1);
+  const [heroHeaderPart2, setHeroHeaderPart2] = useState(landingPageConfig.heroHeaderPart2);
+  const [heroSubheadline, setHeroSubheadline] = useState(landingPageConfig.heroSubheadline);
+  const [heroButtonLeftText, setHeroButtonLeftText] = useState(landingPageConfig.heroButtonLeftText);
+  const [heroButtonRightText, setHeroButtonRightText] = useState(landingPageConfig.heroButtonRightText);
+  const [heroImage, setHeroImage] = useState(landingPageConfig.heroImage);
+
+  // Sync states if store changes
+  useEffect(() => {
+    setFontFamily(landingPageConfig.fontFamily);
+    setPrimaryColor(landingPageConfig.primaryColor);
+    setBackgroundColorMode(landingPageConfig.backgroundColorMode);
+    setAnnouncementText(landingPageConfig.announcementText);
+    setHeroHeaderPart1(landingPageConfig.heroHeaderPart1);
+    setHeroHeaderPart2(landingPageConfig.heroHeaderPart2);
+    setHeroSubheadline(landingPageConfig.heroSubheadline);
+    setHeroButtonLeftText(landingPageConfig.heroButtonLeftText);
+    setHeroButtonRightText(landingPageConfig.heroButtonRightText);
+    setHeroImage(landingPageConfig.heroImage);
+  }, [landingPageConfig]);
+
+  // Collapsible panels indicator flags
+  const [showAddSlidePanel, setShowAddSlidePanel] = useState(false);
+  const [showAddFeaturePanel, setShowAddFeaturePanel] = useState(false);
+
+  // Form states for creating/editing slide
+  const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
+  const [slideTitle, setSlideTitle] = useState("");
+  const [slideCategory, setSlideCategory] = useState("");
+  const [slideProblemBadge, setSlideProblemBadge] = useState("");
+  const [slideProblemTitle, setSlideProblemTitle] = useState("");
+  const [slideProblemDesc, setSlideProblemDesc] = useState("");
+  const [slideProblemImage, setSlideProblemImage] = useState("");
+  const [slideSolutionBadge, setSlideSolutionBadge] = useState("");
+  const [slideSolutionTitle, setSlideSolutionTitle] = useState("");
+  const [slideSolutionDesc, setSlideSolutionDesc] = useState("");
+  const [slideSolutionImage, setSlideSolutionImage] = useState("");
+  const [slideMetricValue, setSlideMetricValue] = useState("");
+  const [slideMetricLabel, setSlideMetricLabel] = useState("");
+  const [slideBullet1, setSlideBullet1] = useState("");
+  const [slideBullet2, setSlideBullet2] = useState("");
+  const [slideBullet3, setSlideBullet3] = useState("");
+
+  // Form states for creating/editing features
+  const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
+  const [featTitle, setFeatTitle] = useState("");
+  const [featBadge, setFeatBadge] = useState("");
+  const [featDesc, setFeatDesc] = useState("");
+  const [featImageUrl, setFeatImageUrl] = useState("");
+  const [featPoint1, setFeatPoint1] = useState("");
+  const [featPoint2, setFeatPoint2] = useState("");
+  const [featPoint3, setFeatPoint3] = useState("");
+
   // Onboarding RBAC state
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpEmail, setNewEmpEmail] = useState("");
@@ -74,6 +142,201 @@ export function AdminModule({
   const [customRoleName, setCustomRoleName] = useState("");
   const [customRoleDept, setCustomRoleDept] = useState("OPD Department");
   const [customRolePerms, setCustomRolePerms] = useState<string[]>(["dashboard"]);
+
+  const [cmsAlert, setCmsAlert] = useState<string | null>(null);
+
+  const handleSaveBrand = () => {
+    updateLandingPageConfig({
+      fontFamily,
+      primaryColor,
+      backgroundColorMode
+    });
+    const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+    const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+    createLog(userName, userRole, "Landing Page Styled", "Main Branding Systems", `Updated typography system font to "${fontFamily}" and theme colors to "${primaryColor}".`);
+    setCmsAlert("Branding style settings saved to EHR system database successfully!");
+  };
+
+  const handleSaveHero = () => {
+    updateLandingPageConfig({
+      announcementText,
+      heroHeaderPart1,
+      heroHeaderPart2,
+      heroSubheadline,
+      heroButtonLeftText,
+      heroButtonRightText,
+      heroImage
+    });
+    const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+    const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+    createLog(userName, userRole, "Landing Hero Content Saved", "Main Branding Systems", `Modified SaaS landing page core headlines and button elements.`);
+    setCmsAlert("Hero section typography and CTAs written successfully!");
+  };
+
+  const handleCreateOrUpdateSlide = () => {
+    if (!slideTitle.trim()) {
+      setCmsAlert("Slide title is required.");
+      return;
+    }
+    const remedyBullets = [slideBullet1, slideBullet2, slideBullet3].filter(b => b.trim() !== "");
+    const slidePayload = {
+      title: slideTitle,
+      category: slideCategory || "HOSPITAL EFFICIENCY",
+      problemBadge: slideProblemBadge || "🔴 DETECTED GAPS",
+      problemTitle: slideProblemTitle || "Unresolved Operational Gaps",
+      problemDesc: slideProblemDesc || "Clinicians face high drag and manual scribing overhead.",
+      problemImage: slideProblemImage || "https://images.unsplash.com/photo-1579684389782-64d84b5e9053?auto=format&fit=crop&w=700&q=80",
+      solutionBadge: slideSolutionBadge || "🟢 INTEGRATED AID",
+      solutionTitle: slideSolutionTitle || "Dynamic EHR Assisted Workflow",
+      solutionDesc: slideSolutionDesc || "Our platform streamlines shift logs and bed telemetry instantly.",
+      solutionImage: slideSolutionImage || "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=700&q=80",
+      metricValue: slideMetricValue || "100%",
+      metricLabel: slideMetricLabel || "Verification Rate Boost",
+      remedyBullets: remedyBullets.length ? remedyBullets : ["Eliminate transcription bottleneck", "Automate compliance tracking", "Optimize clinicians shift workflow"]
+    };
+
+    const currentSlides = landingPageConfig.painPointsSlides || [];
+
+    if (editingSlideId) {
+      const updatedSlides = currentSlides.map(s => s.id === editingSlideId ? { ...s, ...slidePayload } : s);
+      updateLandingPageConfig({ painPointsSlides: updatedSlides });
+      const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+      const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+      createLog(userName, userRole, "Pain Point Slide Modified", "Landing Page Carousel", `Updated slide database ID [${editingSlideId}] "${slideTitle}".`);
+      setCmsAlert(`Carousel slide "${slideTitle}" updated!`);
+      setEditingSlideId(null);
+    } else {
+      const newId = `slide-${Date.now()}`;
+      const nextSlides = [...currentSlides, { ...slidePayload, id: newId }];
+      updateLandingPageConfig({ painPointsSlides: nextSlides });
+      const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+      const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+      createLog(userName, userRole, "Pain Point Slide Created", "Landing Page Carousel", `Provisioned new slide element: "${slideTitle}" dynamically.`);
+      setCmsAlert(`New carousel slide "${slideTitle}" loaded into database!`);
+    }
+
+    setSlideTitle("");
+    setSlideCategory("");
+    setSlideProblemBadge("");
+    setSlideProblemTitle("");
+    setSlideProblemDesc("");
+    setSlideProblemImage("");
+    setSlideSolutionBadge("");
+    setSlideSolutionTitle("");
+    setSlideSolutionDesc("");
+    setSlideSolutionImage("");
+    setSlideMetricValue("");
+    setSlideMetricLabel("");
+    setSlideBullet1("");
+    setSlideBullet2("");
+    setSlideBullet3("");
+    setShowAddSlidePanel(false);
+  };
+
+  const handleEditSlideClick = (slide: any) => {
+    setEditingSlideId(slide.id);
+    setSlideTitle(slide.title);
+    setSlideCategory(slide.category || "");
+    setSlideProblemBadge(slide.problemBadge || "");
+    setSlideProblemTitle(slide.problemTitle || "");
+    setSlideProblemDesc(slide.problemDesc || "");
+    setSlideProblemImage(slide.problemImage || "");
+    setSlideSolutionBadge(slide.solutionBadge || "");
+    setSlideSolutionTitle(slide.solutionTitle || "");
+    setSlideSolutionDesc(slide.solutionDesc || "");
+    setSlideSolutionImage(slide.solutionImage || "");
+    setSlideMetricValue(slide.metricValue || "");
+    setSlideMetricLabel(slide.metricLabel || "");
+    setSlideBullet1(slide.remedyBullets?.[0] || "");
+    setSlideBullet2(slide.remedyBullets?.[1] || "");
+    setSlideBullet3(slide.remedyBullets?.[2] || "");
+    setShowAddSlidePanel(true);
+  };
+
+  const handleDeleteSlideClick = (id: string, title: string) => {
+    const currentSlides = landingPageConfig.painPointsSlides || [];
+    const updated = currentSlides.filter(s => s.id !== id);
+    updateLandingPageConfig({ painPointsSlides: updated });
+    const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+    const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+    createLog(userName, userRole, "Pain Point Slide Deleted", "Landing Page Carousel", `Purged slide database ID [${id}] "${title}".`);
+    setCmsAlert(`Permanently deleted slide "${title}"`);
+    if (editingSlideId === id) {
+      setEditingSlideId(null);
+      // clear fields
+      setSlideTitle("");
+    }
+  };
+
+  const handleCreateOrUpdateFeature = () => {
+    if (!featTitle.trim()) {
+      setCmsAlert("Feature title is required.");
+      return;
+    }
+    const points = [featPoint1, featPoint2, featPoint3].filter(p => p.trim() !== "");
+    const featurePayload = {
+      title: featTitle,
+      badge: featBadge || "CORE EHR ADVANTAGE",
+      desc: featDesc || "Streamlined operations to protect patient safety and control inventory workflow.",
+      imageUrl: featImageUrl || "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80",
+      points: points.length ? points : ["Standard compliance guidelines enforcement", "Visual live logs reporting dashboard", "Closed-loop system accountability tracking"]
+    };
+
+    const currentFeatures = landingPageConfig.featuresList || [];
+
+    if (editingFeatureId) {
+      const updatedFeatures = currentFeatures.map(f => f.id === editingFeatureId ? { ...f, ...featurePayload } : f);
+      updateLandingPageConfig({ featuresList: updatedFeatures });
+      const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+      const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+      createLog(userName, userRole, "Feature Spotlight Updated", "Landing Page CMS", `Edited feature component "${featTitle}".`);
+      setCmsAlert(`Feature spotlight "${featTitle}" updated successfully!`);
+      setEditingFeatureId(null);
+    } else {
+      const newId = `feat-${Date.now()}`;
+      const nextFeatures = [...currentFeatures, { ...featurePayload, id: newId }];
+      updateLandingPageConfig({ featuresList: nextFeatures });
+      const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+      const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+      createLog(userName, userRole, "Feature Spotlight Provisioned", "Landing Page CMS", `Created a new modular spotlight node: "${featTitle}".`);
+      setCmsAlert(`New spotlight module "${featTitle}" created!`);
+    }
+
+    setFeatTitle("");
+    setFeatBadge("");
+    setFeatDesc("");
+    setFeatImageUrl("");
+    setFeatPoint1("");
+    setFeatPoint2("");
+    setFeatPoint3("");
+    setShowAddFeaturePanel(false);
+  };
+
+  const handleEditFeatureClick = (feat: any) => {
+    setEditingFeatureId(feat.id);
+    setFeatTitle(feat.title);
+    setFeatBadge(feat.badge || "");
+    setFeatDesc(feat.desc || "");
+    setFeatImageUrl(feat.imageUrl || "");
+    setFeatPoint1(feat.points?.[0] || "");
+    setFeatPoint2(feat.points?.[1] || "");
+    setFeatPoint3(feat.points?.[2] || "");
+    setShowAddFeaturePanel(true);
+  };
+
+  const handleDeleteFeatureClick = (id: string, title: string) => {
+    const currentFeatures = landingPageConfig.featuresList || [];
+    const updated = currentFeatures.filter(f => f.id !== id);
+    updateLandingPageConfig({ featuresList: updated });
+    const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+    const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+    createLog(userName, userRole, "Feature Spotlight Deleted", "Landing Page CMS", `Deleted spotlight node "${title}".`);
+    setCmsAlert(`Feature "${title}" deleted from spotlight list.`);
+    if (editingFeatureId === id) {
+      setEditingFeatureId(null);
+      setFeatTitle("");
+    }
+  };
 
   // Audit filter states
   const [targetDept, setTargetDept] = useState("All");
@@ -274,7 +537,8 @@ export function AdminModule({
             { id: "directory", label: "Staff & Onboarding", icon: Users, desc: "Personnel records & RBAC keys" },
             { id: "roles", label: "Custom Role Architect", icon: UserCog, desc: "Modular privileges planner" },
             { id: "logs", label: "Security Audit Trails", icon: ShieldCheck, desc: "Chronological HIPAA log ledger" },
-            { id: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "EHR Collections telemetry & gauges" }
+            { id: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "EHR Collections telemetry & gauges" },
+            { id: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage SaaS styles, texts & images" }
           ].map((tab) => {
             const isSelected = activeSubTab === tab.id;
             const TabIcon = tab.icon;
@@ -1083,11 +1347,744 @@ export function AdminModule({
             </div>
 
             <button
-              onClick={handleReset}
-              className="bg-red-50 text-red-700 hover:bg-red-650 hover:text-white py-2 px-4 border border-red-200 rounded-xl text-xs font-semibold shrink-0 text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+               onClick={handleReset}
+               className="bg-red-50 text-red-700 hover:bg-red-650 hover:text-white py-2 px-4 border border-red-200 rounded-xl text-xs font-semibold shrink-0 text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" /> Purge & Restore Collections
             </button>
+          </div>
+
+        </div>
+      )}
+
+      {activeSubTab === "landing" && (
+        <div className="space-y-6">
+          {/* CMS Success Alert Notification Box */}
+          {cmsAlert && (
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-4 rounded-xl flex items-center justify-between shadow-sm animate-fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span className="text-sm font-medium">{cmsAlert}</span>
+              </div>
+              <button 
+                onClick={() => setCmsAlert(null)} 
+                className="text-slate-400 hover:text-slate-705 bg-white hover:bg-slate-100 px-2 py-1 rounded-md border border-slate-200 transition-all font-mono text-[9px] font-bold"
+              >
+                DISMISS
+              </button>
+            </div>
+          )}
+
+          {/* Intro description card */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 relative overflow-hidden">
+            <div className="relative z-10 space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-505/20 text-emerald-300 border border-emerald-500/30 font-mono uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" /> CMS Database Gateway Connected
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">SaaS Dynamic Landing Page Customizer</h2>
+              <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
+                Execute design changes instantly. Choose primary color palettes, override site-wide font families, rewrite patient care pain points carousels, and manage core feature spotlight modules dynamically. Changes auto-propagate to SaaS view!
+              </p>
+            </div>
+            <div className="absolute right-0 bottom-0 top-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500 via-transparent to-transparent w-96 pointer-events-none" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* LEFT COLUMN: Identity & Theme Customization (lg:col-span-4) */}
+            <div className="lg:col-span-4 space-y-6">
+              
+              {/* BRANDING PANEL */}
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm p-5 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <Palette className="w-4 h-4 text-slate-500" />
+                  <h3 className="font-bold text-sm text-slate-800">Visual Brand & Identity</h3>
+                </div>
+
+                {/* Typography Select */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-600">Site Typography System</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: "Space Grotesk", label: "Tech Grotesk" },
+                      { id: "Inter", label: "Modern Sans" },
+                      { id: "Playfair Display", label: "Classic Serif" },
+                      { id: "JetBrains Mono", label: "Mono Accent" }
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFontFamily(f.id as any)}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          fontFamily === f.id
+                            ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className="text-[11px] font-bold">{f.label}</div>
+                        <div className="text-[9px] opacity-75 truncate" style={{ fontFamily: f.id }}>
+                          HIMS Telemetry
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accent Colors Select */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-600">Primary Accent Palette</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "emerald", label: "Emerald", color: "bg-emerald-500" },
+                      { id: "indigo", label: "Indigo", color: "bg-indigo-500" },
+                      { id: "teal", label: "Teal", color: "bg-teal-500" },
+                      { id: "blue", label: "Blue", color: "bg-blue-500" },
+                      { id: "violet", label: "Violet", color: "bg-violet-500" },
+                      { id: "rose", label: "Rose", color: "bg-rose-500" }
+                    ].map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setPrimaryColor(c.id as any)}
+                        className={`px-3 py-1 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-all ${
+                          primaryColor === c.id
+                            ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full ${c.color}`} />
+                        <span className="text-[10px]">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Background Presets */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-600">Default Outer Canvas</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: "light", label: "White", bg: "bg-white border-slate-300" },
+                      { id: "slate", label: "Slate", bg: "bg-slate-50 border-slate-200" },
+                      { id: "stone", label: "Stone", bg: "bg-stone-50 border-stone-200" },
+                      { id: "zinc", label: "Zinc", bg: "bg-zinc-50 border-zinc-200" }
+                    ].map((bgPreset) => (
+                      <button
+                        key={bgPreset.id}
+                        type="button"
+                        onClick={() => setBackgroundColorMode(bgPreset.id as any)}
+                        className={`p-1.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                          backgroundColorMode === bgPreset.id
+                            ? "border-slate-800 bg-slate-100 ring-2 ring-slate-800/10"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-md border ${bgPreset.bg}`} />
+                        <span className="text-[9px] font-semibold mt-1 text-slate-600">{bgPreset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={handleSaveBrand}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Save Style Blueprint
+                  </button>
+                </div>
+              </div>
+
+              {/* IMAGE ASSETS LIBRARY PRESETS */}
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm p-5 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <ImageIcon className="w-4 h-4 text-slate-500" />
+                  <h3 className="font-bold text-sm text-slate-800">Hospital Image Presets</h3>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Click copy to clipboard on any clinical photo to use it inside your custom cards:
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { title: "Smart Nurse Ward Handoff", url: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80" },
+                    { title: "Doctor Consultation Room", url: "https://images.unsplash.com/photo-1579684389782-64d84b5e9053?auto=format&fit=crop&w=800&q=80" },
+                    { title: "Clinical Ward Beds Map", url: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=800&q=80" },
+                    { title: "HIMS Pharmaceutical Storage", url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80" },
+                    { title: "AES Secure Server Room", url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=80" }
+                  ].map((img, i) => (
+                    <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-150">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-700 truncate">{img.title}</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(img.url);
+                            setCmsAlert(`Copied URL for "${img.title}"`);
+                          }}
+                          className="text-[9px] text-blue-600 hover:text-blue-800 font-mono underline"
+                        >
+                          COPY LINK
+                        </button>
+                      </div>
+                      <span className="text-[8px] text-slate-400 select-all truncate bg-white p-1 rounded border border-slate-100 font-mono">
+                        {img.url}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT COLUMN: Section Copy & Slide CRUD (lg:col-span-8) */}
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* HERO & HEADER SETTINGS PANEL */}
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-slate-500" />
+                    <h3 className="font-bold text-sm text-slate-800">Landing Page Hero & CTA Headers</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-650 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                    LIVE PREVIEWABLE
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Announcement Bar */}
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Announcement Top Ticker Text</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850"
+                      value={announcementText}
+                      onChange={(e) => setAnnouncementText(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Header parts */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Hero Main Title (Part 1 - Pain Killer)</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850 font-semibold"
+                      value={heroHeaderPart1}
+                      onChange={(e) => setHeroHeaderPart1(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Hero Main Title (Part 2 - Security Focus)</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850 font-semibold"
+                      value={heroHeaderPart2}
+                      onChange={(e) => setHeroHeaderPart2(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Subheadline description */}
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Hero Subheadline Text Block</label>
+                    <textarea
+                      rows={3}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850 leading-relaxed"
+                      value={heroSubheadline}
+                      onChange={(e) => setHeroSubheadline(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Primary & Secondary button CTA texts */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Launcher Button Left CTA Text</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850"
+                      value={heroButtonLeftText}
+                      onChange={(e) => setHeroButtonLeftText(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Guided Demo Button Right CTA Text</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850"
+                      value={heroButtonRightText}
+                      onChange={(e) => setHeroButtonRightText(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Hero Artwork Image URL */}
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-slate-600">Hero Image Banner Artwork URL</label>
+                    <input
+                      type="text"
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg text-slate-850 font-mono"
+                      value={heroImage}
+                      onChange={(e) => setHeroImage(e.target.value)}
+                    />
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="text-[10px] text-slate-400">Main Banner Preview:</span>
+                      {heroImage && (
+                        <img 
+                          src={heroImage} 
+                          alt="Hero artwork preview" 
+                          referrerPolicy="no-referrer"
+                          className="w-16 h-10 object-cover rounded-md border border-slate-200 shadow-xs" 
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={handleSaveHero}
+                    className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 px-5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-400" /> Save Hero Headlines
+                  </button>
+                </div>
+              </div>
+
+              {/* PAIN POINTS CAROUSEL MANAGER (CRUD: Add, Edit, Update, Delete) */}
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm p-6 space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-slate-500" />
+                    <h3 className="font-bold text-sm text-slate-800">Hospital Pain Points Carousel Editor</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingSlideId(null);
+                      setSlideTitle("");
+                      setSlideCategory("");
+                      setSlideProblemBadge("");
+                      setSlideProblemTitle("");
+                      setSlideProblemDesc("");
+                      setSlideProblemImage("");
+                      setSlideSolutionBadge("");
+                      setSlideSolutionTitle("");
+                      setSlideSolutionDesc("");
+                      setSlideSolutionImage("");
+                      setSlideMetricValue("");
+                      setSlideMetricLabel("");
+                      setSlideBullet1("");
+                      setSlideBullet2("");
+                      setSlideBullet3("");
+                      setShowAddSlidePanel(!showAddSlidePanel);
+                    }}
+                    className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold py-1.5 px-3.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    {showAddSlidePanel ? "Cancel Form" : <><Plus className="w-3.5 h-3.5" /> Deploy Custom Slide</>}
+                  </button>
+                </div>
+
+                {/* SLIDE DEPLOYMENT FORM */}
+                {showAddSlidePanel && (
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4 animate-slide-up">
+                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">
+                        {editingSlideId ? `Editing Slide (System ID: ${editingSlideId})` : "Configure Brand New Hospital Pain Point Slide"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">Slide Button Navigation Label</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white text-slate-800"
+                          value={slideTitle}
+                          onChange={(e) => setSlideTitle(e.target.value)}
+                          placeholder="e.g., Clinician Burnout & Paper Scribbles"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">Domain Category (Uppercase Badge)</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white text-slate-800"
+                          value={slideCategory}
+                          onChange={(e) => setSlideCategory(e.target.value)}
+                          placeholder="e.g., RETENTION & CAPACITY PLANNERS"
+                        />
+                      </div>
+
+                      {/* Problem details */}
+                      <div className="space-y-2.5 p-3 rounded bg-red-52/50 border border-red-100 bg-red-50/50">
+                        <div className="text-[10px] font-bold text-red-700 uppercase">1. Hospital Deficit (Problem Area)</div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Problem Alert Status Badge</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-800"
+                            value={slideProblemBadge}
+                            onChange={(e) => setSlideProblemBadge(e.target.value)}
+                            placeholder="e.g., 🔴 PREVALENT CRISIS: DIZZY HANDOFFS"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Problem Big Title</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-800"
+                            value={slideProblemTitle}
+                            onChange={(e) => setSlideProblemTitle(e.target.value)}
+                            placeholder="e.g., Nurses spend over 4 hours shift handover logs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Problem Detailed Paragraph Description</label>
+                          <textarea
+                            rows={2}
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-00"
+                            value={slideProblemDesc}
+                            onChange={(e) => setSlideProblemDesc(e.target.value)}
+                            placeholder="e.g., Rushed scribbles get lost. Shifts overlap with spoken logs."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Problem Photo Banner URL</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-mono text-slate-800"
+                            value={slideProblemImage}
+                            onChange={(e) => setSlideProblemImage(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Solution details */}
+                      <div className="space-y-2.5 p-3 rounded bg-emerald-52/50 border border-emerald-100 bg-emerald-50/50">
+                        <div className="text-[10px] font-bold text-emerald-700 uppercase">2. EHR Remedy (EHR Action)</div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Solution Success Status Badge</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-800"
+                            value={slideSolutionBadge}
+                            onChange={(e) => setSlideSolutionBadge(e.target.value)}
+                            placeholder="e.g., 🟢 THE AID: AUTOMATED CLINICAL SBAR SUMMARY"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Solution Big Title</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-800"
+                            value={slideSolutionTitle}
+                            onChange={(e) => setSlideSolutionTitle(e.target.value)}
+                            placeholder="e.g., Generate complete standardized SBAR summaries instantly"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Solution Detailed Paragraph Description</label>
+                          <textarea
+                            rows={2}
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-slate-800"
+                            value={slideSolutionDesc}
+                            onChange={(e) => setSlideSolutionDesc(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500">Solution Photo Banner URL</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-mono text-slate-800"
+                            value={slideSolutionImage}
+                            onChange={(e) => setSlideSolutionImage(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Key Metrics and Bullet Points */}
+                      <div className="md:col-span-2 space-y-3 p-3 rounded bg-blue-50/30 border border-blue-100">
+                        <div className="text-[10px] font-bold text-blue-700 uppercase">3. High Impact Diagnostics & Remedies</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500">Metric Highlight Value (Big Text)</label>
+                            <input
+                              type="text"
+                              className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-bold"
+                              value={slideMetricValue}
+                              onChange={(e) => setSlideMetricValue(e.target.value)}
+                              placeholder="e.g., 98.4% or +18%"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500">Metric Description Label</label>
+                            <input
+                              type="text"
+                              className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white"
+                              value={slideMetricLabel}
+                              onChange={(e) => setSlideMetricLabel(e.target.value)}
+                              placeholder="e.g., Transcription Error Reduction"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Remedy bullets */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-600 block">Verification Bullet Remedies (Max 3)</label>
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white"
+                            value={slideBullet1}
+                            onChange={(e) => setSlideBullet1(e.target.value)}
+                            placeholder="Bullet 1"
+                          />
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white"
+                            value={slideBullet2}
+                            onChange={(e) => setSlideBullet2(e.target.value)}
+                            placeholder="Bullet 2"
+                          />
+                          <input
+                            type="text"
+                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white"
+                            value={slideBullet3}
+                            onChange={(e) => setSlideBullet3(e.target.value)}
+                            placeholder="Bullet 3"
+                          />
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSlidePanel(false)}
+                        className="bg-white hover:bg-slate-105 text-slate-600 py-1.5 px-3 rounded-lg border border-slate-200 font-semibold"
+                      >
+                        Abandon
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateOrUpdateSlide}
+                        className="bg-slate-900 hover:bg-slate-800 text-white py-1.5 px-3 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        {editingSlideId ? "Update Slide" : "Load Slide"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CURRENT SLIDES DIRECTORY */}
+                <div className="space-y-3">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Active Carousel Deck</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {(landingPageConfig.painPointsSlides || []).map((slide, sIdx) => {
+                      return (
+                        <div key={slide.id} className="p-3 border border-slate-150 rounded-xl bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all flex flex-col justify-between">
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] font-mono bg-slate-200/60 px-1.5 py-0.5 rounded text-slate-600 font-bold">
+                                SLIDE #{sIdx + 1}
+                              </span>
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-505 text-indigo-500">
+                                {slide.category}
+                              </span>
+                            </div>
+                            <h4 className="text-xs font-bold text-slate-850 truncate">{slide.title}</h4>
+                            <p className="text-[10px] text-slate-500 line-clamp-2">{slide.problemTitle}</p>
+                            <div className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded inline-flex font-bold">
+                              {slide.metricValue} — {slide.metricLabel}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
+                            <button
+                              onClick={() => handleEditSlideClick(slide)}
+                              className="text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit2 className="w-3 h-3" /> Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSlideClick(slide.id, slide.title)}
+                              className="text-red-600 hover:text-red-800 flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* SPOTLIGHT MODULE SUMMARY DETAILS (CRUD: Add, Edit, Update, Delete) */}
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm p-6 space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-slate-500" />
+                    <h3 className="font-bold text-sm text-slate-800">Spotlight Clinical Module Summaries</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingFeatureId(null);
+                      setFeatTitle("");
+                      setFeatBadge("");
+                      setFeatDesc("");
+                      setFeatImageUrl("");
+                      setFeatPoint1("");
+                      setFeatPoint2("");
+                      setFeatPoint3("");
+                      setShowAddFeaturePanel(!showAddFeaturePanel);
+                    }}
+                    className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold py-1.5 px-3.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    {showAddFeaturePanel ? "Cancel Form" : <><Plus className="w-3.5 h-3.5" /> Deploy Custom Feature</>}
+                  </button>
+                </div>
+
+                {/* FEATURE DEPLOYMENT FORM */}
+                {showAddFeaturePanel && (
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4 animate-slide-up">
+                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">
+                        {editingFeatureId ? `Editing Spotlight (System ID: ${editingFeatureId})` : "Configure Brand New Clinical Module Summary"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">Feature Highlight/Module Title</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white text-slate-800"
+                          value={featTitle}
+                          onChange={(e) => setFeatTitle(e.target.value)}
+                          placeholder="e.g., Closed-Loop Pharmacy Depot Sync"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">Spotlight Category Badge</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white text-slate-800"
+                          value={featBadge}
+                          onChange={(e) => setFeatBadge(e.target.value)}
+                          placeholder="e.g., HIPAA SECURED AT CORE"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600">Brief Feature Narrative Summary</label>
+                        <textarea
+                          rows={2}
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white text-slate-800"
+                          value={featDesc}
+                          onChange={(e) => setFeatDesc(e.target.value)}
+                          placeholder="e.g., Keep dosage trails verified and prevent drug pilferage securely."
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-605 text-slate-600">Clinical Module Artwork URL</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-2 border border-slate-200 rounded bg-white font-mono text-slate-800"
+                          value={featImageUrl}
+                          onChange={(e) => setFeatImageUrl(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 p-3 bg-slate-100 rounded border border-slate-200 space-y-2">
+                        <label className="text-[10px] font-bold text-slate-600 block">Custom Dynamic Bullet Achievements (Max 3)</label>
+                        <input
+                          type="text"
+                          className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-semibold text-slate-800"
+                          value={featPoint1}
+                          onChange={(e) => setFeatPoint1(e.target.value)}
+                          placeholder="Bullet 1: e.g. Smart Form Guide: Speeds up diagnostic SOAP drafting."
+                        />
+                        <input
+                          type="text"
+                          className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-semibold text-slate-800"
+                          value={featPoint2}
+                          onChange={(e) => setFeatPoint2(e.target.value)}
+                          placeholder="Bullet 2"
+                        />
+                        <input
+                          type="text"
+                          className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-semibold text-slate-800"
+                          value={featPoint3}
+                          onChange={(e) => setFeatPoint3(e.target.value)}
+                          placeholder="Bullet 3"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFeaturePanel(false)}
+                        className="bg-white hover:bg-slate-105 text-slate-600 py-1.5 px-3 rounded-lg border border-slate-200"
+                      >
+                        Abandon
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateOrUpdateFeature}
+                        className="bg-slate-900 hover:bg-slate-800 text-white py-1.5 px-3 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        {editingFeatureId ? "Update Spotlight" : "Load Spotlight"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* FEATURE LIST DIRECTORY */}
+                <div className="space-y-3">
+                  <div className="text-[11px] font-bold text-slate-450 uppercase tracking-widest block font-mono">Active Spotlight Features</div>
+                  <div className="space-y-3">
+                    {(landingPageConfig.featuresList || []).map((feat, fIdx) => (
+                      <div key={feat.id} className="p-4 border border-slate-150 rounded-xl bg-slate-50/40 hover:bg-white hover:border-slate-300 transition-all flex flex-col md:flex-row gap-4 items-center justify-between">
+                        <div className="flex items-center gap-4 text-left w-full min-w-0">
+                          {feat.imageUrl && (
+                            <img 
+                              src={feat.imageUrl} 
+                              alt={feat.title} 
+                              referrerPolicy="no-referrer"
+                              className="w-20 h-16 object-cover rounded-lg border border-slate-100 shrink-0 shadow-xs" 
+                            />
+                          )}
+                          <div className="space-y-1.5 min-w-0 truncate">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-mono bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-bold">#{fIdx + 1}</span>
+                              <span className="text-[9px] uppercase font-mono font-bold text-indigo-650 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md truncate">{feat.badge}</span>
+                            </div>
+                            <h4 className="text-xs font-bold text-slate-850 truncate">{feat.title}</h4>
+                            <p className="text-[10px] text-slate-500 line-clamp-2">{feat.desc}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-150 justify-between items-center text-xs font-bold">
+                          <button
+                            onClick={() => handleEditFeatureClick(feat)}
+                            className="text-blue-600 hover:text-blue-800 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" /> Edit Copy
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFeatureClick(feat.id, feat.title)}
+                            className="text-red-650 hover:text-red-800 flex items-center gap-0.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Purge
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
           </div>
 
         </div>
