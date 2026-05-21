@@ -109,7 +109,7 @@ export function AIChatBot({ store }: AIChatBotProps) {
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans text-xs">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans text-xs">
       {/* Floating Circular Trigger button */}
       {!isOpen && (
         <button
@@ -128,7 +128,7 @@ export function AIChatBot({ store }: AIChatBotProps) {
       {/* Main Chat Panel */}
       {isOpen && (
         <div
-          className="w-80 md:w-96 h-[550px] bg-slate-905 bg-slate-900 text-slate-100 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-800"
+          className="w-[calc(100vw-2rem)] sm:w-80 md:w-96 h-[80vh] sm:h-[550px] bg-slate-900 text-slate-100 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-800 max-w-[400px]"
           id="alex_chat_panel"
         >
           {/* Header */}

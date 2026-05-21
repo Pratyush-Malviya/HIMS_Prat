@@ -647,7 +647,7 @@ export function AdminModule({
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">Role: <strong className="text-slate-600">{emp.role}</strong> ({emp.department})</div>
                       </div>
 
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         {allowedCodes.map((code) => {
                           const permitted = emp.permittedModules.includes(code.id);
                           return (
