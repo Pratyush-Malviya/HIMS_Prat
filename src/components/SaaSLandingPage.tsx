@@ -23,7 +23,8 @@ import {
   FileCheck,
   Smartphone,
   Check,
-  X
+  X,
+  Menu
 } from "lucide-react";
 
 interface SaaSLandingPageProps {
@@ -52,6 +53,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
   // Pricing Calculator State
   const [bedCapacity, setBedCapacity] = useState<number>(150);
   const [useAIModules, setUseAIModules] = useState<boolean>(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Read Dynamic Landing Page CMS Configuration from our global HMO/EHR Store
   const landingPageConfig = store?.landingPageConfig || {};
@@ -363,14 +365,14 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
       </div>
 
       {/* NAVIGATION BAR - Sleeker and elegant */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 sm:px-12 py-4 flex items-center justify-between transition-all">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 ${colorClasses.bg} text-white rounded-xl shadow-xs`}>
-            <Activity className="w-5 h-5 stroke-[2.5]" />
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-4 sm:px-8 lg:px-12 py-3.5 flex items-center justify-between transition-all">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className={`p-2 sm:p-2.5 ${colorClasses.bg} text-white rounded-xl shadow-xs`}>
+            <Activity className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold tracking-tight text-slate-950">MediFlow AI</h1>
-            <span className="font-mono text-[9px] tracking-widest font-bold text-slate-400 uppercase block leading-none">Enterprise HIMS Grid</span>
+            <h1 className="text-sm sm:text-base md:text-lg font-extrabold tracking-tight text-slate-950">MediFlow AI</h1>
+            <span className="font-mono text-[8px] sm:text-[9px] tracking-widest font-bold text-slate-400 uppercase block leading-none">Enterprise HIMS Grid</span>
           </div>
         </div>
 
@@ -382,24 +384,113 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
           <a href="#calculator" className={`hover:${colorClasses.text} transition-colors`}>Subscription Calc</a>
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={() => onLaunchApp(false)}
-            className="text-slate-650 hover:text-slate-950 text-sm font-medium px-4 py-2 border border-slate-200 hover:border-slate-350 bg-white rounded-xl shadow-xs transition-all active:scale-95"
+            className="hidden md:block text-slate-650 hover:text-slate-950 text-sm font-medium px-4 py-2 border border-slate-200 hover:border-slate-350 bg-white rounded-xl shadow-xs transition-all active:scale-95"
           >
             Clinical Sign In
           </button>
           
           <button 
             onClick={() => onLaunchApp(true)}
-            className={`${colorClasses.bg} ${colorClasses.hoverBg} text-white text-sm font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md ${colorClasses.shadow} active:scale-95`}
+            className={`hidden sm:flex ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-sm font-bold px-5 py-2.5 rounded-xl items-center gap-2 transition-all shadow-md ${colorClasses.shadow} active:scale-95`}
             id="saas_header_launch_app"
           >
             <span>Activate Sandbox</span>
             <ArrowRight className="w-4 h-4" />
           </button>
+
+          {/* Quick Sandbox Trigger for mobile - Sleek & compact */}
+          <button 
+            onClick={() => onLaunchApp(true)}
+            className={`sm:hidden ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1 transition-all shadow-xs active:scale-95`}
+          >
+            <span>Sandbox</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Hamburger toggle button for responsive layout */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-950 lg:hidden rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Toggle Navigation Menu"
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-5 h-5 stroke-[2.5]" />
+            ) : (
+              <Menu className="w-5 h-5 stroke-[2.5]" />
+            )}
+          </button>
         </div>
       </header>
+
+      {/* Mobile Dropping Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden sticky top-[69px] z-40 bg-white border-b border-slate-200 shadow-md transition-all">
+          <div className="px-5 py-4 space-y-4">
+            <nav className="flex flex-col gap-2.5 text-xs sm:text-sm font-semibold text-slate-700 tracking-tight">
+              <a 
+                href="#quick-visual" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-1.5 hover:${colorClasses.text} transition-colors border-b border-slate-100 block`}
+              >
+                How It Works
+              </a>
+              <a 
+                href="#pain-carousel" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-1.5 hover:${colorClasses.text} transition-colors border-b border-slate-100 block`}
+              >
+                Administrative Evaluation
+              </a>
+              <a 
+                href="#spotlight" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-1.5 hover:${colorClasses.text} transition-colors border-b border-slate-100 block`}
+              >
+                Core Modules
+              </a>
+              <a 
+                href="#rbac-section" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-1.5 hover:${colorClasses.text} transition-colors border-b border-slate-100 block`}
+              >
+                Security Matrix
+              </a>
+              <a 
+                href="#calculator" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-1.5 hover:${colorClasses.text} transition-colors border-b border-slate-100 block`}
+              >
+                Subscription Calc
+              </a>
+            </nav>
+
+            <div className="flex flex-col gap-2 pt-1">
+              <button 
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onLaunchApp(false);
+                }}
+                className="w-full text-center text-slate-700 hover:text-slate-950 text-xs sm:text-sm font-semibold py-2.5 border border-slate-200 bg-white rounded-xl shadow-xs transition-colors"
+              >
+                Clinical Sign In
+              </button>
+              <button 
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onLaunchApp(true);
+                }}
+                className={`w-full text-center ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm`}
+              >
+                <span>Activate Sandbox</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Majestic glow patterns */}
       <div className="absolute top-24 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
