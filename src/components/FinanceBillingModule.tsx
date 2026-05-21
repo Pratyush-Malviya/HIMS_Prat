@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DollarSign, FileCheck, Landmark, CheckCircle, Clock, ShieldCheck, Printer, FileText } from "lucide-react";
+import { DollarSign, FileCheck, Landmark, CheckCircle, Clock, ShieldCheck, Printer, FileText, Download } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
 
 interface FinanceBillingModuleProps {
@@ -116,15 +116,78 @@ export function FinanceBillingModule({ store }: FinanceBillingModuleProps) {
           {selectedInvoice ? (
             <div className="bg-white border border-slate-100 rounded-xl p-5 space-y-4 shadow-sm relative">
               {/* Receipt Visual Header */}
-              <div className="border-b border-dashed border-slate-200 pb-3 block">
+              <div className="border-b border-dashed border-slate-200 pb-3 block text-left">
                 <span className="text-[10px] text-slate-400 font-mono block">PRINT REFERENCE: {selectedInvoice.id}</span>
                 <div className="flex justify-between items-center mt-1">
                   <h3 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1">
                     <FileText className="w-4 h-4 text-slate-400" /> itemized Patient Bill
                   </h3>
-                  <button onClick={() => window.print()} className="p-1 text-slate-400 hover:text-slate-800 transition-colors">
-                    <Printer className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => {
+                        const printWindow = window.open("", "_blank");
+                        if (!printWindow) return;
+                        const printingHtml = `
+                          <html>
+                            <head>
+                              <title>Invoice - ${selectedInvoice.invoiceNumber}</title>
+                              <style>
+                                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+                                .hospital { text-transform: uppercase; font-size: 11px; tracking: 1.5px; font-weight: bold; color: #0284c7; margin-bottom: 4px; }
+                                h1 { font-size: 20px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 0; margin-bottom: 24px; }
+                                h2 { font-size: 13px; font-family: monospace; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; margin-top: 24px; padding-bottom: 4px; color: #334155; }
+                                .meta { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; }
+                                p { font-size: 13px; margin: 8px 0; }
+                                .item-row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+                                .totals { margin-top: 16px; font-size: 12px; line-height: 1.8; text-align: right; }
+                                .footer { margin-top: 48px; border-top: 1px dashed #cbd5e1; padding-top: 16px; font-size: 11px; color: #64748b; font-family: monospace; display: flex; justify-content: space-between; }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="hospital">HIMS Billing & Finance operations</div>
+                              <h1>Patient Invoice statement</h1>
+                              <div class="meta">
+                                <div><strong>PATIENT NAME:</strong> ${selectedInvoice.patientName}</div>
+                                <div><strong>INVOICE REFERENCE:</strong> ${selectedInvoice.invoiceNumber}</div>
+                                <div><strong>STATUS:</strong> ${selectedInvoice.status.toUpperCase()}</div>
+                                <div><strong>DATE GENERATED:</strong> ${new Date(selectedInvoice.date).toLocaleDateString()}</div>
+                              </div>
+                              <h2>Itemized Ledger Statement</h2>
+                              ${selectedInvoice.items.map(it => `
+                                <div class="item-row">
+                                  <span>${it.description} (${it.category})</span>
+                                  <strong>${it.amount}</strong>
+                                </div>
+                              `).join("")}
+                              <div class="totals">
+                                <div>Gross total Amount: ${selectedInvoice.totalAmount}</div>
+                                <div>TPA preauth Covered: ${selectedInvoice.insuranceClaimed}</div>
+                                <div style="font-size: 14px; font-weight: bold; margin-top: 6px; color: #059669;">Net Patient Payable: ${selectedInvoice.totalAmount - selectedInvoice.insuranceClaimed}</div>
+                              </div>
+                              <div class="footer">
+                                <div>SYSTEM SECURE SIGNATURE • FDIC CODED CERTIFIED</div>
+                                <div>Billing Desk Officer: __________________________</div>
+                              </div>
+                              <script>
+                                window.onload = function() { window.print(); }
+                              </script>
+                            </body>
+                          </html>
+                        `;
+                        printWindow.document.write(printingHtml);
+                        printWindow.document.close();
+                      }}
+                      className="p-1 px-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs leading-none flex items-center gap-1 font-semibold transition-all cursor-pointer border border-emerald-200/40"
+                      title="Download PDF Ledger Report"
+                      id="btn_download_billing_pdf"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+                    <button onClick={() => window.print()} className="p-1 text-slate-400 hover:text-slate-800 transition-colors">
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
 

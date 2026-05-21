@@ -24,11 +24,15 @@ import {
   Server
 } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
+import { getSecondaryAuth, db, handleFirestoreError, OperationType } from "../firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { setDoc, doc } from "firebase/firestore";
+
 
 interface AdminModuleProps {
   store: HIMSStore;
   currentUser: { name: string; role: string };
-  setCurrentUser: (user: { name: string; role: string }) => void;
+  setCurrentUser?: (user: { name: string; role: string }) => void;
   activeSubTab?: string;
   setActiveSubTab?: (sub: string) => void;
 }
@@ -59,6 +63,9 @@ export function AdminModule({
 
   // Onboarding RBAC state
   const [newEmpName, setNewEmpName] = useState("");
+  const [newEmpEmail, setNewEmpEmail] = useState("");
+  const [newEmpPassword, setNewEmpPassword] = useState("");
+  const [isOnboarding, setIsOnboarding] = useState(false);
   const [newEmpRole, setNewEmpRole] = useState("Physician");
   const [newEmpDept, setNewEmpDept] = useState("OPD Department");
   const [newEmpPerms, setNewEmpPerms] = useState<string[]>(["dashboard"]);
@@ -138,22 +145,58 @@ export function AdminModule({
     }
   };
 
-  const handleOnboardSubmit = (e: React.FormEvent) => {
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmpName.trim()) {
       alert("Please enter employee name.");
       return;
     }
-    onboardEmployee({
-      id: `emp-${Date.now()}`,
-      name: newEmpName.trim(),
-      role: newEmpRole,
-      department: newEmpDept,
-      permittedModules: newEmpPerms
-    });
-    setNewEmpName("");
-    handleRoleChange(newEmpRole);
-    alert(`Success: "${newEmpName.trim()}" onboarded securely and HIMS security tokens deployed.`);
+    if (!newEmpEmail.trim() || !newEmpPassword.trim()) {
+      alert("Please provide valid login email and security password credentials.");
+      return;
+    }
+    if (newEmpPassword.length < 6) {
+      alert("Security requirement: Password must consist of at least 6 characters.");
+      return;
+    }
+
+    setIsOnboarding(true);
+
+    const { secondaryAuth, cleanup } = getSecondaryAuth();
+    try {
+      // 1. Create the Auth credential
+      const userCred = await createUserWithEmailAndPassword(secondaryAuth, newEmpEmail.trim(), newEmpPassword);
+      const uid = userCred.user.uid;
+      
+      const newEmp = {
+        id: uid, // Use actual uid as Id so they can retrieve it on login!
+        name: newEmpName.trim(),
+        email: newEmpEmail.trim(),
+        role: newEmpRole,
+        department: newEmpDept,
+        permittedModules: newEmpPerms
+      };
+
+      // 2. Write to `/employees/{uid}` Firestore doc
+      await setDoc(doc(db, "employees", uid), newEmp);
+
+      // 3. Update store (local list for display)
+      onboardEmployee(newEmp);
+
+      alert(`Success: "${newEmpName.trim()}" onboarded securely and HIMS security tokens deployed.`);
+      
+      // Reset inputs
+      setNewEmpName("");
+      setNewEmpEmail("");
+      setNewEmpPassword("");
+      handleRoleChange(newEmpRole);
+    } catch (err: any) {
+      console.error("Failed to onboard employee to Firebase:", err);
+      alert(`Failed to onboard employee: ${err.message || err}`);
+    } finally {
+      setIsOnboarding(false);
+      await cleanup();
+    }
   };
 
   const handleToggleModuleForCustom = (moduleId: string) => {
@@ -201,8 +244,12 @@ export function AdminModule({
   };
 
   const handleSwitchUser = (name: string, role: string) => {
-    setCurrentUser({ name, role });
-    alert(`Context changed: Swapped to operator "${name}" (${role})`);
+    if (setCurrentUser) {
+      setCurrentUser({ name, role });
+      alert(`Context changed: Swapped to operator "${name}" (${role})`);
+    } else {
+      alert(`Informational: Swapping simulators is disabled while secure Multi-User Auth is operational. To sign in as "${name}" (${role}), please register them in the Onboarding tab and log in with their secure credentials.`);
+    }
   };
 
   const triggerSimulationLog = (actionName: string, desc: string) => {
@@ -388,6 +435,33 @@ export function AdminModule({
                       onChange={(e) => setNewEmpName(e.target.value)}
                       className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none focus:border-indigo-500"
                       required
+                      disabled={isOnboarding}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-500 uppercase font-mono mb-1">Login Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. sarah.connor@hospital.com"
+                      value={newEmpEmail}
+                      onChange={(e) => setNewEmpEmail(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none focus:border-indigo-500"
+                      required
+                      disabled={isOnboarding}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-500 uppercase font-mono mb-1">Initial Password (min 6 chars)</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newEmpPassword}
+                      onChange={(e) => setNewEmpPassword(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none focus:border-indigo-500"
+                      required
+                      disabled={isOnboarding}
                     />
                   </div>
 
@@ -397,6 +471,7 @@ export function AdminModule({
                       value={newEmpDept}
                       onChange={(e) => setNewEmpDept(e.target.value)}
                       className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none"
+                      disabled={isOnboarding}
                     >
                       <option value="OPD Department">OPD Department</option>
                       <option value="Nursing Station">Nursing Station</option>
@@ -415,6 +490,7 @@ export function AdminModule({
                       value={newEmpRole}
                       onChange={(e) => handleRoleChange(e.target.value)}
                       className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none font-semibold text-slate-700"
+                      disabled={isOnboarding}
                     >
                       <optgroup label="Core Clinician Roles">
                         <option value="Physician">Physician</option>
@@ -453,6 +529,7 @@ export function AdminModule({
                             checked={newEmpPerms.includes(mod.id)}
                             onChange={() => handleToggleModuleForNew(mod.id)}
                             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                            disabled={isOnboarding}
                           />
                           <span className="text-[11px] text-slate-600">{mod.label}</span>
                         </label>
@@ -462,9 +539,16 @@ export function AdminModule({
 
                   <button
                     type="submit"
-                    className="w-full bg-slate-900 border border-slate-800 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={isOnboarding}
+                    className="w-full bg-slate-900 border border-slate-800 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <Plus className="w-4 h-4 text-emerald-400" /> Onboard Staff Account
+                    {isOnboarding ? (
+                      <span>Deploying Secure Keys...</span>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 text-emerald-400" /> Onboard Staff Account
+                      </>
+                    )}
                   </button>
                 </form>
               </div>

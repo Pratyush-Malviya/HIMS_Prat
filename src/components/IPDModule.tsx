@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { BedDouble, Plus, AlertCircle, TrendingUp, CheckSquare, Sparkles, UserCheck, ShieldAlert, Thermometer, Heart, Eye } from "lucide-react";
+import { BedDouble, Plus, AlertCircle, TrendingUp, CheckSquare, Sparkles, UserCheck, ShieldAlert, Thermometer, Heart, Eye, Download, ClipboardList, RefreshCw, Sparkle } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { HIMSStore } from "../useHIMSStore";
-import { forecastBedCapacity, generateDischargeSummary } from "../api";
+import { forecastBedCapacity, generateDischargeSummary, askAlexChat } from "../api";
 
 interface IPDModuleProps {
   store: HIMSStore;
@@ -24,7 +25,7 @@ export function IPDModule({ store }: IPDModuleProps) {
   } = store;
 
   // Local navigation inside IPD
-  const [ipdSubTab, setIpdSubTab] = useState<"beds" | "vitals" | "forecast" | "admit">("beds");
+  const [ipdSubTab, setIpdSubTab] = useState<"beds" | "vitals" | "forecast" | "admit" | "handover">("beds");
 
   // Selected inpatient for direct monitoring view
   const [selectedAdmId, setSelectedAdmId] = useState<string | null>(admissions.find(a => a.status === "Admitted")?.id || null);
@@ -57,6 +58,14 @@ export function IPDModule({ store }: IPDModuleProps) {
   // AI Bed Forecast states
   const [forecasting, setForecasting] = useState(false);
   const [forecastReport, setForecastReport] = useState<any>(null);
+
+  // Shift Handover Desk States
+  const [handoverFrom, setHandoverFrom] = useState("Nurse Priya Singh");
+  const [handoverTo, setHandoverTo] = useState("Dr. Rajesh Kumar");
+  const [handoverShift, setHandoverShift] = useState("Day Shift to Night Shift");
+  const [handoverAddNotes, setHandoverAddNotes] = useState("");
+  const [generatingHandover, setGeneratingHandover] = useState(false);
+  const [aiHandoverReport, setAiHandoverReport] = useState<string | null>(null);
 
   const activeInpatients = admissions.filter((a) => a.status === "Admitted");
   const selectedAdmission = admissions.find((a) => a.id === selectedAdmId);
@@ -218,6 +227,68 @@ export function IPDModule({ store }: IPDModuleProps) {
     }
   };
 
+  const handleGenerateHandover = async () => {
+    if (activeInpatients.length === 0) {
+      alert("No active inpatients to compile a briefing for.");
+      return;
+    }
+
+    setGeneratingHandover(true);
+    setAiHandoverReport(null);
+
+    try {
+      // Gather active list with anomalies & pending labs
+      const patientDetails = activeInpatients.map((adm) => {
+        const latestVital = adm.vitalsHistory?.[0];
+        const isAnomaly = latestVital?.isAnomaly;
+        const o2Sat = latestVital?.spO2;
+        const hr = latestVital?.heartRate;
+        const isHighRisk = isAnomaly || (o2Sat && o2Sat < 95) || (hr && (hr < 50 || hr > 125)) || adm.admittingDiagnosis.toLowerCase().includes("sepsis") || adm.admittingDiagnosis.toLowerCase().includes("trauma");
+        
+        // Find matching pending labs
+        const pendingLabs = store.labTests.filter(
+          (test) => test.patientId === adm.patientId && test.status !== "Completed"
+        ).map(t => t.testName);
+
+        return {
+          name: adm.patientName,
+          ward: adm.ward,
+          bed: adm.bedNumber,
+          diagnosis: adm.admittingDiagnosis,
+          admittingDoctor: adm.admittingDoctor,
+          latestVitals: latestVital ? `HR: ${latestVital.heartRate} bpm, BP: ${latestVital.bloodPressure}, SpO2: ${latestVital.spO2}%` : "No vitals recently logged",
+          pendingLabs: pendingLabs.length > 0 ? pendingLabs.join(", ") : "None",
+          highRiskStatus: isHighRisk ? "YES - HIGH RISK" : "No"
+        };
+      });
+
+      const prompt = `Act as an expert head nurse and clinical coordinator. Compile a highly concise HIMS Shift Handover Briefing Report.
+      
+Handover Protocol Details:
+- Outgoing Operator: ${handoverFrom}
+- Incoming Operator: ${handoverTo}
+- Transition Shift Cycle: ${handoverShift}
+- Floor Coordination / Operational Notes: "${handoverAddNotes || "Routine hand-off"}"
+
+Active Patient SBAR (Situation, Background, Assessment, Recommendation) Details to aggregate:
+${JSON.stringify(patientDetails, null, 2)}
+
+Please formatting a professional clinical shift briefing document in neat markdown with clear headers, bold accents, and summary boxes. Highlights:
+1. High-Risk Patients that require immediate monitoring or hourly alarms.
+2. Pending Lab Tests that the incoming shift needs to follow up on.
+3. Specific bed allocation changes or upcoming discharge priorities.
+Keep the advice actionable, precise, and styled professionally for immediate clinical reading. Do not show raw JSON.`;
+
+      const response = await askAlexChat([{ role: "user", content: prompt }]);
+      setAiHandoverReport(response.text || "Failed to parse handover report.");
+    } catch (err: any) {
+      console.error(err);
+      setAiHandoverReport("Error generating handover: " + err.message);
+    } finally {
+      setGeneratingHandover(false);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full">
       {/* Real-time Notification Alerts Panel */}
@@ -313,15 +384,24 @@ export function IPDModule({ store }: IPDModuleProps) {
           <button
             onClick={() => setIpdSubTab("forecast")}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-              ipdSubTab === "forecast" ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"
+              ipdSubTab === "forecast" ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-slate-600 hover:bg-slate-50"
             }`}
           >
             <TrendingUp className="w-4 h-4" /> Bed Flow Forecast
           </button>
           <button
+            onClick={() => setIpdSubTab("handover")}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              ipdSubTab === "handover" ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-slate-600 hover:bg-slate-50"
+            }`}
+            id="ipd_subtab_handover"
+          >
+            <ClipboardList className="w-4 h-4 text-emerald-500" /> Shift Handover Desk
+          </button>
+          <button
             onClick={() => setIpdSubTab("admit")}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-              ipdSubTab === "admit" ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"
+              ipdSubTab === "admit" ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-slate-600 hover:bg-slate-50"
             }`}
           >
             <Plus className="w-4 h-4" /> Register Admission
@@ -552,10 +632,43 @@ export function IPDModule({ store }: IPDModuleProps) {
                     </button>
                   </form>
 
-                  {/* Vitals History timeline */}
+                  {/* Vitals History timeline & Recharts Line Chart */}
                   <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-slate-800 pb-1.5 border-b border-slate-50">Historic Biometric Sequence</h3>
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                    <h3 className="text-xs font-semibold text-slate-800 pb-1.5 border-b border-slate-50">Historic Biometric Trend & Sequence</h3>
+                    
+                    {selectedAdmission.vitalsHistory.length > 0 && (
+                      <div className="bg-slate-50/70 p-3 border border-slate-100 rounded-xl">
+                        <div className="h-44 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart 
+                              data={[...selectedAdmission.vitalsHistory].reverse().map((vt) => {
+                                const bpParts = (vt.bloodPressure || "120/80").split("/");
+                                const systolic = parseInt(bpParts[0]) || 120;
+                                const diastolic = parseInt(bpParts[1]) || 80;
+                                return {
+                                  time: new Date(vt.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                                  heartRate: vt.heartRate,
+                                  systolic,
+                                  diastolic
+                                };
+                              })} 
+                              margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                              <XAxis dataKey="time" tick={{ fontSize: 8 }} stroke="#64748b" />
+                              <YAxis tick={{ fontSize: 8 }} stroke="#64748b" domain={[40, 180]} />
+                              <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, backgroundColor: "#0f172a", color: "#fff" }} />
+                              <Legend wrapperStyle={{ fontSize: 8, marginTop: 4 }} />
+                              <Line type="monotone" dataKey="heartRate" stroke="#ec4899" strokeWidth={2} name="Heart Rate (bpm)" activeDot={{ r: 4 }} />
+                              <Line type="monotone" dataKey="systolic" stroke="#ef4444" strokeWidth={1.5} name="BP Systolic" />
+                              <Line type="monotone" dataKey="diastolic" stroke="#3b82f6" strokeWidth={1.5} name="BP Diastolic" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
                       {selectedAdmission.vitalsHistory.length === 0 ? (
                         <div className="text-xs text-slate-400 py-6 text-center">No vitals charted yet. Use the form to record.</div>
                       ) : (
@@ -632,12 +745,67 @@ export function IPDModule({ store }: IPDModuleProps) {
                           <Sparkles className="w-4 h-4 text-emerald-600" />
                           Generated AI Discharge Document: {aiDischargeSummary.patientName}
                         </span>
-                        <button
-                          onClick={() => setAiDischargeSummary(null)}
-                          className="text-[10px] text-slate-400 hover:text-slate-600 font-bold"
-                        >
-                          Dismiss Document View
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const printWindow = window.open("", "_blank");
+                              if (!printWindow) return;
+                              const printingHtml = `
+                                <html>
+                                  <head>
+                                    <title>Discharge Summary - ${aiDischargeSummary.patientName}</title>
+                                    <style>
+                                      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+                                      .hospital { text-transform: uppercase; font-size: 11px; tracking: 1.5px; font-style: italic; color: #10b981; margin-bottom: 4px; }
+                                      h1 { font-size: 20px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 0; margin-bottom: 24px; }
+                                      h2 { font-size: 13px; font-family: monospace; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; margin-top: 24px; padding-bottom: 4px; color: #334155; }
+                                      .meta { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; }
+                                      p { font-size: 13px; margin: 8px 0; }
+                                      .list { font-size: 13px; white-space: pre-wrap; font-family: sans-serif; }
+                                      .footer { margin-top: 48px; border-top: 1px dashed #cbd5e1; padding-top: 16px; font-size: 11px; color: #64748b; font-family: monospace; display: flex; justify-content: space-between; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <div class="hospital">HIMS Medical EHR records System</div>
+                                    <h1>Inpatient Discharge Summary</h1>
+                                    <div class="meta">
+                                      <div><strong>PATIENT NAME:</strong> ${aiDischargeSummary.patientName}</div>
+                                      <div><strong>DOCUMENT STATUS:</strong> CLINICAL DISCHARGE COMPLETE</div>
+                                      <div><strong>PRINT TIME:</strong> ${new Date().toLocaleString()}</div>
+                                    </div>
+                                    <h2>Clinical Stay Synthesis & Admitting Diagnosis</h2>
+                                    <p>${aiDischargeSummary.conciseSummary}</p>
+                                    <h2>Patient Comfort Instructions</h2>
+                                    <p>${aiDischargeSummary.easyToUnderstandSummary}</p>
+                                    <h2>Follow-Up Treatment & Red Flags</h2>
+                                    <div class="list">${aiDischargeSummary.followUpInstructions}</div>
+                                    <h2>Discharge Home Medications</h2>
+                                    <div class="list">${aiDischargeSummary.medicationRecommendations}</div>
+                                    <div class="footer">
+                                      <div>SECURE DISCHARGE RECORD • ISO-27001 PROVEN CRYPTO SECURITY</div>
+                                      <div>Physician Signature: _________________________</div>
+                                    </div>
+                                    <script>
+                                      window.onload = function() { window.print(); }
+                                    </script>
+                                  </body>
+                                </html>
+                              `;
+                              printWindow.document.write(printingHtml);
+                              printWindow.document.close();
+                            }}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                            id="btn_download_discharge_pdf"
+                          >
+                            <Download className="w-3.5 h-3.5 animate-pulse" /> Download Report (PDF)
+                          </button>
+                          <button
+                            onClick={() => setAiDischargeSummary(null)}
+                            className="text-[10px] text-slate-400 hover:text-slate-600 font-bold"
+                          >
+                            Dismiss Document View
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-3 text-xs text-slate-700">
@@ -807,6 +975,274 @@ export function IPDModule({ store }: IPDModuleProps) {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {ipdSubTab === "handover" && (
+          <div className="bg-white border border-slate-100 rounded-xl p-5 space-y-6">
+            <div className="flex flex-wrap justify-between items-start gap-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                  <ClipboardList className="w-4 h-4 text-emerald-600" />
+                  Ward Shift Handover Protocol Desk
+                </h2>
+                <p className="text-xs text-slate-400">Generate, review, and export high-fidelity structured briefings for the incoming clinical crew.</p>
+              </div>
+            </div>
+
+            {/* Quick Stats Banner */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg text-left">
+                <span className="text-[9px] text-slate-400 font-mono block uppercase">Active list in scope</span>
+                <span className="text-lg font-bold text-slate-800">{activeInpatients.length} admitted</span>
+              </div>
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-left">
+                <span className="text-[9px] text-red-400 font-mono block uppercase">High-risk patients alert</span>
+                <span className="text-lg font-bold text-red-700">
+                  {activeInpatients.filter((adm) => {
+                    const vt = adm.vitalsHistory?.[0];
+                    return vt?.isAnomaly || (vt?.spO2 && vt.spO2 < 95) || (vt?.heartRate && (vt.heartRate < 50 || vt.heartRate > 125));
+                  }).length} critical
+                </span>
+              </div>
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-left">
+                <span className="text-[9px] text-amber-500 font-mono block uppercase">Pending lab test track</span>
+                <span className="text-lg font-bold text-amber-800">
+                  {activeInpatients.reduce((total, adm) => {
+                    const pending = store.labTests.filter(t => t.patientId === adm.patientId && t.status !== "Completed").length;
+                    return total + pending;
+                  }, 0)} active tests
+                </span>
+              </div>
+            </div>
+
+            {/* Handover configurations */}
+            <div className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl space-y-4 text-xs text-slate-700">
+              <h3 className="font-semibold text-slate-800">1. Shift Transition Parameters</h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1">Outgoing Duty Operator</label>
+                  <select 
+                    value={handoverFrom} 
+                    onChange={(e) => setHandoverFrom(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded p-2"
+                  >
+                    <option>Nurse Priya Singh</option>
+                    <option>Dr. Rajesh Kumar</option>
+                    <option>Deepak Verma</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1">Incoming Duty Operator</label>
+                  <select 
+                    value={handoverTo} 
+                    onChange={(e) => setHandoverTo(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded p-2"
+                  >
+                    <option>Dr. Rajesh Kumar</option>
+                    <option>Dr. Ananya Nair</option>
+                    <option>Nurse Priya Singh</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1">Shift Cycle</label>
+                  <select 
+                    value={handoverShift} 
+                    onChange={(e) => setHandoverShift(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded p-2"
+                  >
+                    <option>Day Shift to Night Shift</option>
+                    <option>Night Shift to Morning Shift</option>
+                    <option>Morning Shift to Day Shift</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-1">Additional Operational / Ward floor comments</label>
+                <textarea 
+                  value={handoverAddNotes}
+                  onChange={(e) => setHandoverAddNotes(e.target.value)}
+                  placeholder="e.g. Ward B general maintenance clearance scheduled, ventilators re-calibrated on bed B2..."
+                  className="w-full text-xs bg-white border border-slate-200 rounded p-2 h-16 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={handleGenerateHandover}
+                  disabled={generatingHandover}
+                  className="bg-slate-900 border border-slate-800 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2 cursor-pointer transition-all hover:bg-slate-800"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  {generatingHandover ? "Compiling briefing metrics..." : "Generate AI Handover Briefing"}
+                </button>
+              </div>
+            </div>
+
+            {/* Inpatients hand-off manifest details */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-xs text-slate-800 uppercase tracking-widest font-mono border-b pb-1.5 flex justify-between items-center">
+                <span>2. Ward Active Patient Briefing Manifest</span>
+                <span className="text-[10px] text-slate-400 capitalize bg-slate-50 px-2 py-0.5 rounded font-sans font-normal border">
+                  Auto-sync: {new Date().toLocaleDateString()}
+                </span>
+              </h3>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                {activeInpatients.length === 0 ? (
+                  <div className="text-center py-8 text-xs text-slate-400">No active inpatient admissions currently assigned during this cycle.</div>
+                ) : (
+                  activeInpatients.map((adm) => {
+                    const latestVital = adm.vitalsHistory?.[0];
+                    const isAnomaly = latestVital?.isAnomaly;
+                    const o2Sat = latestVital?.spO2;
+                    const hr = latestVital?.heartRate;
+                    const isHighRisk = isAnomaly || (o2Sat && o2Sat < 95) || (hr && (hr < 50 || hr > 125)) || adm.admittingDiagnosis.toLowerCase().includes("sepsis") || adm.admittingDiagnosis.toLowerCase().includes("trauma");
+                    
+                    // Find pending labs for patient
+                    const pendingLabs = store.labTests.filter(
+                      (test) => test.patientId === adm.patientId && test.status !== "Completed"
+                    );
+
+                    return (
+                      <div 
+                        key={adm.id} 
+                        className={`p-4 rounded-xl border transition-all text-xs text-left text-slate-700 ${
+                          isHighRisk ? "bg-red-50/40 border-red-150 shadow-sm" : "bg-white border-slate-100 hover:border-slate-200"
+                        }`}
+                      >
+                        <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                              {adm.patientName} 
+                              {isHighRisk && (
+                                <span className="bg-red-600 text-white font-mono font-bold text-[8px] tracking-wider px-2 py-0.5 rounded-full inline-flex items-center gap-1 animate-pulse">
+                                  <AlertCircle className="w-2.5 h-2.5" /> HIGH RISK ALERT
+                                </span>
+                              )}
+                            </h4>
+                            <span className="text-[10px] text-slate-400 font-mono">Admission ID: {adm.id} • Assigned Physician: {adm.admittingDoctor}</span>
+                          </div>
+                          <span className="bg-slate-900 text-white font-mono text-[10px] font-bold px-2 py-1 rounded">
+                            {adm.ward} - Bed {adm.bedNumber}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 mt-2 border-t border-slate-100/60 text-slate-600">
+                          <div>
+                            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block mb-1">Observation & Diagnosis</span>
+                            <p className="font-medium text-slate-800">{adm.admittingDiagnosis}</p>
+                            
+                            {latestVital ? (
+                              <div className="mt-2.5 flex items-center gap-3 font-mono text-[11px] font-medium bg-slate-50 px-2.5 py-1.5 border rounded-lg whitespace-nowrap">
+                                <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-pink-500" /> {latestVital.heartRate} bpm</span>
+                                <span className="text-slate-350">•</span>
+                                <span>BP: {latestVital.bloodPressure}</span>
+                                <span className="text-slate-350">•</span>
+                                <span>SpO2: {latestVital.spO2}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic block mt-2">No active biometrics charted.</span>
+                            )}
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block mb-1">Laboratory Diagnostics Follow-up</span>
+                            {pendingLabs.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {pendingLabs.map((l) => (
+                                  <span key={l.id} className="bg-amber-100 text-amber-900 border border-amber-200/50 rounded-lg px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 font-mono">
+                                    🧪 {l.testName} <span className="text-[8px] bg-amber-200 px-1 py-0.5 rounded font-bold uppercase">{l.status}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-emerald-700 font-medium font-mono flex items-center gap-1.5 mt-1 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 w-fit">
+                                <CheckSquare className="w-3.5 h-3.5" /> No pending diagnostic labs
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* AI Generated Briefing Display Block & Action to print it */}
+            {aiHandoverReport && (
+              <div className="p-5 bg-slate-900 text-slate-200 border border-slate-800 rounded-xl space-y-4 animate-fadeIn" id="ai_compiled_handover_view">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+                    <span className="font-mono text-xs uppercase font-extrabold tracking-wider text-emerald-400">AI Shift Transition Report Complete</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const printWindow = window.open("", "_blank");
+                        if (!printWindow) return;
+                        const formattingHtml = `
+                          <html>
+                            <head>
+                              <title>HIMS Shift Handover Statement</title>
+                              <style>
+                                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+                                h1 { font-size: 20px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 24px; }
+                                h2 { font-size: 15px; border-bottom: 1px solid #e2e8f0; margin-top: 24px; color: #334155; }
+                                .meta { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; font-family: monospace; }
+                                .meta grid { display: grid; grid-template-cols: 1fr 1fr; gap: 8px; }
+                                .briefing { background: #fafafa; border: 1px solid #eaeaea; padding: 20px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; }
+                                .seal { margin-top: 48px; border-top: 1px dashed #cbd5e1; padding-top: 16px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
+                              </style>
+                            </head>
+                            <body>
+                              <h1>HIMS Clinical Shift Handover Report</h1>
+                              <div class="meta">
+                                <div><strong>OUTGOING UNIT DIRECT:</strong> ${handoverFrom}</div>
+                                <div><strong>INCOMING UNIT DIRECT:</strong> ${handoverTo}</div>
+                                <div><strong>TRANSITION CYCLE:</strong> ${handoverShift}</div>
+                                <div><strong>TIMESTAMP LOGGED:</strong> ${new Date().toLocaleString()}</div>
+                                <div style="margin-top: 10px;"><strong>ADDITIONAL INSTRUCTIONS:</strong> ${handoverAddNotes || "None"}</div>
+                              </div>
+                              <h2>CLINICAL EXECUTIVE SUMMARY</h2>
+                              <div class="briefing">${aiHandoverReport}</div>
+                              
+                              <div class="seal">
+                                <div>SYSTEM SECURE SIGNATURE SEAL • HIPAA CERTIFIED EHR RECORD</div>
+                                <div>Outgoing Initials: _______________ / Incoming Initials: _______________</div>
+                              </div>
+                              <script>
+                                window.onload = function() { window.print(); }
+                              </script>
+                            </body>
+                          </html>
+                        `;
+                        printWindow.document.write(formattingHtml);
+                        printWindow.document.close();
+                      }}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                      id="btn_print_handover_brief"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download Report (PDF)
+                    </button>
+                    <button
+                      onClick={() => setAiHandoverReport(null)}
+                      className="text-slate-400 hover:text-white text-xs"
+                    >
+                      Dismiss Document
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-left text-xs text-slate-300 leading-relaxed max-h-[350px] overflow-y-auto pr-2 bg-slate-950 p-4 border border-slate-800 rounded font-sans whitespace-pre-line prose prose-invert">
+                  {aiHandoverReport}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

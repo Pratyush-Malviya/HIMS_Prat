@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net Default-Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // global primitive validation helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Helper to validate Admin document shape
+    function isValidAdmin(data) {
+      return data.uid is string && data.uid.size() <= 128 
+        && data.email is string && data.email.size() <= 200
+        && data.name is string && data.name.size() <= 200
+        && data.role is string && data.role.size() <= 100
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && data.isPaid is bool
+        && data.paymentPlan is string && data.paymentPlan.size() <= 100
+        && data.keys().hasAll(['uid', 'email', 'name', 'role', 'createdAt', 'isPaid', 'paymentPlan']) 
+        && data.keys().size() == 7;
+    }
+
+    // Helper to validate Employee document shape
+    function isValidEmployee(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 200
+        && data.email is string && data.email.size() <= 200
+        && data.role is string && data.role.size() <= 100
+        && data.department is string && data.department.size() <= 100
+        && data.permittedModules is list && data.permittedModules.size() <= 20
+        && data.keys().hasAll(['id', 'name', 'email', 'role', 'department', 'permittedModules'])
+        && data.keys().size() == 6;
+    }
+
+    // Helper to validate ExpiredTrial document shape
+    function isValidExpiredTrial(data) {
+      return data.email is string && data.email.size() <= 200
+        && data.expiredAt is string && data.expiredAt.size() <= 100
+        && data.keys().hasAll(['email', 'expiredAt'])
+        && data.keys().size() == 2;
+    }
+
+    // Admin Account operations
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      
+      // Allow creation during signup, bootstrapping the specified owner account
+      allow create: if isSignedIn() && request.auth.uid == adminId && isValidAdmin(incoming()) 
+        && (request.auth.token.email == "malviya.pratyush26@gmail.com" || request.auth.token.email_verified == true);
+      
+      // Admins can update their own accounts, properties must match
+      allow update: if isSignedIn() && request.auth.uid == adminId && isValidAdmin(incoming()) 
+        && incoming().uid == existing().uid && incoming().email == existing().email;
+      
+      // Only another admin can delete an admin record
+      allow delete: if isAdmin() && request.auth.uid != adminId;
+    }
+
+    // Employee Account operational privileges (managed strictly by Admins)
+    match /employees/{employeeId} {
+      allow read: if isSignedIn() && (request.auth.uid == employeeId || isAdmin());
+      
+      allow create: if isAdmin() && isValidId(employeeId) && isValidEmployee(incoming()) && incoming().id == employeeId;
+      
+      allow update: if isAdmin() && isValidId(employeeId) && isValidEmployee(incoming()) 
+        && incoming().id == existing().id && incoming().email == existing().email;
+      
+      allow delete: if isAdmin() && isValidId(employeeId);
+    }
+
+    // Expired Trials Collection Tracker
+    match /expired_trials/{emailId} {
+      allow get: if true;
+      allow list, write: if isSignedIn();
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Activity,
@@ -24,7 +24,8 @@ import {
   Cpu,
   Smartphone,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowRight
 } from "lucide-react";
 
 import { useHIMSStore } from "./useHIMSStore";
@@ -36,10 +37,35 @@ import { PharmacyModule } from "./components/PharmacyModule";
 import { FinanceBillingModule } from "./components/FinanceBillingModule";
 import { AdminModule } from "./components/AdminModule";
 import { AIChatBot } from "./components/AIChatBot";
+import { SaaSLandingPage } from "./components/SaaSLandingPage";
+import { LoginPortal } from "./components/LoginPortal";
+import { PaymentPage } from "./components/PaymentPage";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function App() {
   const store = useHIMSStore();
   const { loading, employees, customRoles } = store;
+
+  // Real-time Firebase Auth states
+  const [authenticatedUser, setAuthenticatedUser] = useState<{
+    uid: string;
+    email: string;
+    role: string;
+    name: string;
+    department: string;
+    permittedModules: string[];
+    isAdmin: boolean;
+    createdAt?: string;
+    isPaid?: boolean;
+    paymentPlan?: string;
+  } | null>(null);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+
+  // Active viewMode ("saas" vs "app")
+  const [viewMode, setViewMode] = useState<"saas" | "app">("saas");
+  const [initialSignUp, setInitialSignUp] = useState<boolean>(false);
 
   // Active primary tab and subtab
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -60,29 +86,223 @@ export default function App() {
   // Selected Patient for global context routing
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
-  // Active RBAC User Role (defaulting to hospital chief Physician)
-  const [currentUser, setCurrentUser] = useState({
+  // Sync session on mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // 1. Check if employee
+          const empDoc = await getDoc(doc(db, "employees", firebaseUser.uid));
+          if (empDoc.exists()) {
+            const data = empDoc.data();
+            setAuthenticatedUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              role: data.role,
+              name: data.name,
+              department: data.department,
+              permittedModules: data.permittedModules || ["dashboard"],
+              isAdmin: false
+            });
+            await store.syncFirestoreData();
+          } else {
+            // 2. Check if admin
+            const admDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
+            if (admDoc.exists()) {
+              const data = admDoc.data();
+              setAuthenticatedUser({
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || "",
+                role: "Admin",
+                name: data.name,
+                department: "Finance Office",
+                permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"],
+                isAdmin: true,
+                createdAt: data.createdAt || new Date().toISOString(),
+                isPaid: !!data.isPaid,
+                paymentPlan: data.paymentPlan || "Free Trial (14-Days)"
+              });
+              await store.syncFirestoreData();
+            } else {
+              // Sign out if found in neither directory
+              await signOut(auth);
+              setAuthenticatedUser(null);
+            }
+          }
+        } catch (e) {
+          console.error("Authentication setup error on mount: ", e);
+        }
+      } else {
+        setAuthenticatedUser(null);
+      }
+      setAuthChecking(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Map active session user and role
+  const currentUser = authenticatedUser ? {
+    name: authenticatedUser.name,
+    role: authenticatedUser.role
+  } : {
     name: "Dr. Rajesh Kumar",
     role: "Physician"
-  });
-
-  // Find current active employee details for live RBAC checking
-  const activeEmployee = employees?.find((emp) => emp.name === currentUser.name) || {
-    id: "default",
-    name: currentUser.name,
-    role: currentUser.role,
-    department: "General OPD",
-    permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"]
   };
 
-  if (loading) {
+  // Find current active employee details for live RBAC checking
+  const activeEmployee = authenticatedUser ? {
+    id: authenticatedUser.uid,
+    name: authenticatedUser.name,
+    role: authenticatedUser.role,
+    department: authenticatedUser.department,
+    permittedModules: authenticatedUser.permittedModules
+  } : {
+    id: "default",
+    name: "Guest",
+    role: "Physician",
+    department: "General OPD",
+    permittedModules: ["dashboard"]
+  };
+
+  // Calculate trial information
+  const getTrialDaysInfo = () => {
+    if (!authenticatedUser || !authenticatedUser.isAdmin) {
+      return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
+    }
+    if (authenticatedUser.isPaid) {
+      return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
+    }
+    const createdDate = new Date(authenticatedUser.createdAt || new Date());
+    const currentDate = new Date();
+    const diffTime = currentDate.getTime() - createdDate.getTime();
+    const elapsedDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const daysRemaining = Math.max(0, 14 - elapsedDays);
+    const isTrialExpired = elapsedDays >= 14;
+    return { elapsedDays, daysRemaining, isTrialExpired };
+  };
+
+  const { elapsedDays, daysRemaining, isTrialExpired } = getTrialDaysInfo();
+
+  const handleSimulateTrialExpiration = async () => {
+    if (!authenticatedUser) return;
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const fifteenDaysAgoISO = fifteenDaysAgo.toISOString();
+    
+    try {
+      if (authenticatedUser.isAdmin) {
+        await setDoc(doc(db, "admins", authenticatedUser.uid), {
+          uid: authenticatedUser.uid,
+          email: authenticatedUser.email,
+          name: authenticatedUser.name,
+          role: "Admin",
+          createdAt: fifteenDaysAgoISO,
+          isPaid: false,
+          paymentPlan: "Free Trial (14-Days)"
+        });
+        
+        // Save email immediately into expired_trials
+        await setDoc(doc(db, "expired_trials", authenticatedUser.email.trim().toLowerCase()), {
+          email: authenticatedUser.email,
+          expiredAt: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.warn("Failed persisting simulation date:", err);
+    }
+
+    setAuthenticatedUser(prev => prev ? {
+      ...prev,
+      createdAt: fifteenDaysAgoISO,
+      isPaid: false
+    } : null);
+
+    alert("Simulation complete: System date shifted to 15 days ago. Your email has been registered as expired, and you are locked on the premium payment redirection terminal.");
+  };
+
+  // Auto-record expired trial emails to prevent future trial reuse
+  useEffect(() => {
+    if (authenticatedUser?.isAdmin && isTrialExpired && authenticatedUser?.email) {
+      const emailId = authenticatedUser.email.trim().toLowerCase();
+      const persistExpiredEmail = async () => {
+        try {
+          await setDoc(doc(db, "expired_trials", emailId), {
+            email: authenticatedUser.email,
+            expiredAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn("Auto-saving expired trial email to DB log (handled):", err);
+        }
+      };
+      persistExpiredEmail();
+    }
+  }, [authenticatedUser, isTrialExpired]);
+
+  if (authChecking || loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <Activity className="w-12 h-12 text-emerald-600 animate-pulse mb-3" />
-        <p className="text-sm font-semibold text-slate-700 animate-pulse">Initializing Clinic Database & EHR Tables...</p>
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white">
+        <Activity className="w-12 h-12 text-emerald-500 animate-pulse mb-3" />
+        <p className="text-sm font-semibold font-mono text-emerald-400 animate-pulse uppercase tracking-wider">Verifying Security Access Gateway...</p>
       </div>
     );
   }
+
+  // Intercept viewMode to show public SaaS Product Tour & pricing page
+  if (viewMode === "saas") {
+    return (
+      <SaaSLandingPage 
+        onLaunchApp={(signUpMode) => {
+          setViewMode("app");
+          setInitialSignUp(!!signUpMode);
+        }} 
+      />
+    );
+  }
+
+  // Enforce credentials login before hospital systems access
+  if (!authenticatedUser) {
+    return (
+      <LoginPortal 
+        initialSignUpMode={initialSignUp}
+        onLoginSuccess={async (usr) => {
+          setAuthenticatedUser(usr);
+          await store.syncFirestoreData();
+        }} 
+        onBackToLanding={() => {
+          setViewMode("saas");
+          setInitialSignUp(false);
+        }}
+      />
+    );
+  }
+
+  // Force redirection to payment page if trial is exhausted
+  if (isTrialExpired) {
+    return (
+      <PaymentPage 
+        currentUserEmail={authenticatedUser.email}
+        adminUid={authenticatedUser.uid}
+        adminName={authenticatedUser.name}
+        createdAt={authenticatedUser.createdAt || new Date().toISOString()}
+        onPaymentSuccess={async (planName) => {
+          setAuthenticatedUser(prev => prev ? {
+            ...prev,
+            isPaid: true,
+            paymentPlan: planName
+          } : null);
+          await store.syncFirestoreData();
+        }}
+        onSignOut={async () => {
+          await signOut(auth);
+          setAuthenticatedUser(null);
+          setViewMode("saas");
+          setInitialSignUp(false);
+        }}
+      />
+    );
+  }
+
 
   // Define sidebar navigation structure with items and subitems
   const sidebarNavigation = [
@@ -166,34 +386,78 @@ export default function App() {
           </div>
         </div>
 
-        {/* Dynamic User Profile Context Swap Selector inside Sidebar */}
-        <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2">
+        {/* Dynamic SaaS Mode Toggle Trigger */}
+        <div className="p-4 bg-slate-950/40 border-b border-slate-800 text-left">
+          <button
+            onClick={() => setViewMode("saas")}
+            className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/25 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+            id="sidebar_btn_saas_tour"
+          >
+            <span className="flex items-center gap-1.5 shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              SaaS Marketing Site
+            </span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Dynamic User Profile Context inside Sidebar */}
+        <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2.5">
           <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono tracking-wider">
-            <span>ACTIVE SECURITY OPERATOR</span>
-            <span className="relative flex h-2 w-2">
+            <span>SECURE WORKSTATION ID</span>
+            <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
             </span>
           </div>
 
-          <div className="relative group">
-            <select
-              value={`${currentUser.name}||${currentUser.role}`}
-              onChange={(e) => {
-                const [nextName, nextRole] = e.target.value.split("||");
-                setCurrentUser({ name: nextName, role: nextRole });
+          <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl space-y-2.5">
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-white truncate">{authenticatedUser.name}</div>
+              <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-indigo-550/15 text-indigo-400 font-bold uppercase text-[8px]">
+                  {authenticatedUser.role}
+                </span>
+                <span className="truncate">{authenticatedUser.department}</span>
+              </div>
+            </div>
+
+            {/* Simulated 14-days Free Trial Tracking widget inside active Admin workspace */}
+            {authenticatedUser.isAdmin && (
+              <div className="pt-2 mt-2 border-t border-slate-800/80 text-[10px] space-y-1.5 text-left">
+                <div className="font-mono text-[9px] text-amber-400 font-semibold tracking-wider uppercase">
+                  {authenticatedUser.isPaid ? "🏆 SUBSCRIPTION: ACTIVE" : `⚡ 14-DAY FREE TRIAL`}
+                </div>
+                <div className="text-[10px] text-slate-300">
+                  {authenticatedUser.isPaid ? (
+                    <span>Plan: <strong className="text-emerald-400">{authenticatedUser.paymentPlan || "Enterprise EHR"}</strong></span>
+                  ) : (
+                    <span>Day <strong className="text-emerald-400">{elapsedDays + 1}</strong> of 14 remaining (<strong className="text-emerald-400">{daysRemaining} days left</strong>)</span>
+                  )}
+                </div>
+                {!authenticatedUser.isPaid && (
+                  <button
+                    onClick={handleSimulateTrialExpiration}
+                    className="w-full mt-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-[9px] font-bold rounded hover:shadow-md transition-all uppercase text-center"
+                    title="Shifts creation timestamp 15 days into past to review automatic redirection & payment features."
+                  >
+                    ⏩ Fast-Forward 14 Days
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={async () => {
+                await signOut(auth);
+                setAuthenticatedUser(null);
+                setViewMode("saas");
+                setInitialSignUp(false);
               }}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 outline-none font-medium cursor-pointer focus:border-emerald-500 transition-colors"
+              className="w-full text-center py-1.5 bg-slate-800 hover:bg-red-500/10 hover:text-red-400 border border-slate-800 hover:border-red-500/20 text-slate-400 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all"
             >
-              {employees.map((profile) => (
-                <option key={profile.id} value={`${profile.name}||${profile.role}`}>
-                  {profile.name} ({profile.role})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="text-[10px] text-slate-400 font-mono pl-1">
-            Department: <strong className="text-emerald-400 font-semibold">{activeEmployee.department}</strong>
+              REVOKE SESSION (LOGOUT)
+            </button>
           </div>
         </div>
 
@@ -333,7 +597,7 @@ export default function App() {
                 transition={{ type: "tween", duration: 0.25 }}
                 className="fixed inset-y-0 left-0 w-80 max-w-sm bg-slate-900 text-white z-50 lg:hidden flex flex-col shadow-2xl"
               >
-                {/* Header */}
+                 {/* Header */}
                 <div className="p-4 border-b border-slate-800 flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-emerald-500 text-slate-950 rounded-lg">
@@ -354,23 +618,82 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Operator Swap */}
-                <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2">
-                  <span className="text-[9px] text-slate-400 font-mono block">SECURITY SELECTION CONTEXT</span>
-                  <select
-                    value={`${currentUser.name}||${currentUser.role}`}
-                    onChange={(e) => {
-                      const [nextName, nextRole] = e.target.value.split("||");
-                      setCurrentUser({ name: nextName, role: nextRole });
+                {/* Mobile SaaS Switch Button */}
+                <div className="p-4 bg-slate-950/30 border-b border-slate-800 text-left">
+                  <button
+                    onClick={() => {
+                      setViewMode("saas");
+                      setMobileSidebarOpen(false);
                     }}
-                    className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 outline-none font-medium cursor-pointer"
+                    className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between"
                   >
-                    {employees.map((profile) => (
-                      <option key={profile.id} value={`${profile.name}||${profile.role}`}>
-                        {profile.name} ({profile.role})
-                      </option>
-                    ))}
-                  </select>
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                      SaaS Marketing Portal
+                    </span>
+                    <ArrowRight className="w-3 h-3 text-emerald-400" />
+                  </button>
+                </div>
+
+                {/* Dynamic User Profile Context inside Mobile Drawer */}
+                <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono tracking-wider">
+                    <span>SECURE WORKSTATION ID</span>
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl space-y-2.5">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-white truncate">{authenticatedUser.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 font-normal">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-550/15 text-indigo-400 font-bold uppercase text-[8px] shrink-0 font-sans">
+                          {authenticatedUser.role}
+                        </span>
+                        <span className="truncate">{authenticatedUser.department}</span>
+                      </div>
+                    </div>
+
+                    {/* Simulated 14-days Free Trial Tracking widget inside active Admin workspace (m) */}
+                    {authenticatedUser.isAdmin && (
+                      <div className="pt-2 mt-2 border-t border-slate-800/80 text-[10px] space-y-1.5 text-left">
+                        <div className="font-mono text-[9px] text-amber-400 font-semibold tracking-wider uppercase">
+                          {authenticatedUser.isPaid ? "🏆 SUBSCRIPTION: ACTIVE" : `⚡ 14-DAY FREE TRIAL`}
+                        </div>
+                        <div className="text-[10px] text-slate-355">
+                          {authenticatedUser.isPaid ? (
+                            <span>Plan: <strong className="text-emerald-400">{authenticatedUser.paymentPlan || "Enterprise EHR"}</strong></span>
+                          ) : (
+                            <span>Day <strong className="text-emerald-400">{elapsedDays + 1}</strong> of 14 remaining (<strong className="text-emerald-400">{daysRemaining} days left</strong>)</span>
+                          )}
+                        </div>
+                        {!authenticatedUser.isPaid && (
+                          <button
+                            onClick={handleSimulateTrialExpiration}
+                            className="w-full mt-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-[9px] font-bold rounded hover:shadow-md transition-all uppercase text-center"
+                            title="Shifts creation timestamp 15 days into past to review automatic redirection & payment features."
+                          >
+                            ⏩ Fast-Forward 14 Days
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={async () => {
+                        await signOut(auth);
+                        setAuthenticatedUser(null);
+                        setMobileSidebarOpen(false);
+                        setViewMode("saas");
+                        setInitialSignUp(false);
+                      }}
+                      className="w-full text-center py-1.5 bg-slate-850 hover:bg-red-500/10 hover:text-red-400 border border-slate-800 hover:border-red-500/20 text-slate-400 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all"
+                    >
+                      REVOKE SESSION (LOGOUT)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Grouped Lists navigation */}
@@ -528,7 +851,6 @@ export default function App() {
                       <AdminModule 
                         store={store} 
                         currentUser={currentUser} 
-                        setCurrentUser={setCurrentUser} 
                         activeSubTab={activeSubTab}
                         setActiveSubTab={setActiveSubTab}
                       />

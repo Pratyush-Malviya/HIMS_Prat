@@ -304,6 +304,41 @@ Generate a predictive bed capacity assessment in JSON format with fields:
   }
 });
 
+// AI 24-Hour Ward Summary Report Generator
+app.post("/api/gemini/ward-summary", async (req, res) => {
+  try {
+    const { anomalyEvents, patientTransfers, bedOccupancyChanges } = req.body;
+
+    const ai = getGemini();
+    const prompt = `Act as an expert Chief Medical Officer and hospital operations director. Generate a structured 24-hour ward summary report.
+Contextual Data from last 24-hours:
+- Anomaly Events logged: ${JSON.stringify(anomalyEvents || [])}
+- Patient Transfers & Admission changes: ${JSON.stringify(patientTransfers || [])}
+- Bed Occupancy & Capacity changes: ${JSON.stringify(bedOccupancyChanges || [])}
+
+Provide standard clinical and operations dashboard sections in JSON format:
+- executiveSummary: A professional clinical-grade summary of the last 24 hours on the ward (2-3 sentences).
+- occupancyAnalysis: Synthesized overview of bed occupancy changes, bottlenecks, or safety ratios (2 sentences).
+- transferInsights: Highlights of critical patient transfers between departments (e.g. general ward to ICU) and workflow efficiency.
+- anomalyOverview: Detailed assessment of recorded vital/biometric anomalies and risk management.
+- recommendations: 3-4 bullet joint staff guidelines or workflow optimizations for the incoming clinical crew or floor supervisor.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.1,
+      },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Gemini Ward Summary Error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate ward summary report" });
+  }
+});
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString(), keyPresent: !!process.env.GEMINI_API_KEY });

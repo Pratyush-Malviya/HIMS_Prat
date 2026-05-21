@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "admin": {
+      "title": "Admin",
+      "description": "Hospital system administrator with subscription status",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "isPaid": {
+          "type": "boolean"
+        },
+        "paymentPlan": {
+          "type": "string"
+        }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt", "isPaid", "paymentPlan"]
+    },
+    "employee": {
+      "title": "Employee",
+      "description": "Hospital clinical or operational employee account",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "department": {
+          "type": "string"
+        },
+        "permittedModules": {
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "email", "role", "department", "permittedModules"]
+    },
+    "expiredTrial": {
+      "title": "Expired Trial",
+      "description": "Log of emails that have completed their free trial period",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "expiredAt": {
+          "type": "string"
+        }
+      },
+      "required": ["email", "expiredAt"]
+    }
+  },
+  "firestore": {
+    "admins/{adminId}": {
+      "schema": "admin",
+      "description": "Collection of system administrators with complete database privileges"
+    },
+    "employees/{employeeId}": {
+      "schema": "employee",
+      "description": "Collection of clinically authorized employee workspace accounts mapped to module access lists"
+    },
+    "expired_trials/{emailId}": {
+      "schema": "expiredTrial",
+      "description": "Log of unique emails that have completed free test trial usage"
+    }
+  }
+}

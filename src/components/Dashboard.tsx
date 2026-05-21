@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Activity, Users, BedDouble, AlertTriangle, FileText, Pill, DollarSign, ArrowRight } from "lucide-react";
+import { Activity, Users, BedDouble, AlertTriangle, FileText, Pill, DollarSign, ArrowRight, Sparkles, RefreshCw, Clipboard } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
+import { generateWardSummary } from "../api";
 
 interface DashboardProps {
   store: HIMSStore;
@@ -10,6 +11,50 @@ interface DashboardProps {
 
 export function Dashboard({ store, setActiveTab, setSelectedPatientId }: DashboardProps) {
   const { patients, appointments, vitals, beds, admissions, medicines, billing, auditLogs } = store;
+
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [wardSummaryReport, setWardSummaryReport] = useState<any>(null);
+
+  const triggerWardSummary = async () => {
+    setGeneratingSummary(true);
+    setWardSummaryReport(null);
+    try {
+      // Gather dynamic payload from current store state
+      const anomalies = vitals.filter(v => v.isAnomaly).map(v => ({
+        patientUHID: patients.find(p => p.id === v.patientId)?.uhid,
+        reason: v.anomalyReason,
+        values: `HR: ${v.heartRate}, BP: ${v.bloodPressure}, SpO2: ${v.spO2}%`,
+        timestamp: v.timestamp
+      }));
+
+      const activeAdmits = admissions.filter(a => a.status === "Admitted");
+      const recentTransfers = activeAdmits.slice(0, 5).map(adm => ({
+        patientName: adm.patientName,
+        bed: adm.bedNumber,
+        ward: adm.ward,
+        admittedBy: adm.admittingDoctor,
+        diagnosis: adm.admittingDiagnosis
+      }));
+
+      const occupancyMetric = [{
+        totalBeds: beds.length,
+        occupiedCount: beds.filter(b => b.status === "Occupied").length,
+        occupancyPercent: Math.round((beds.filter(b => b.status === "Occupied").length / beds.length) * 100)
+      }];
+
+      const summary = await generateWardSummary({
+        anomalyEvents: anomalies,
+        patientTransfers: recentTransfers,
+        bedOccupancyChanges: occupancyMetric
+      });
+
+      setWardSummaryReport(summary);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   // Compute metrics
   const activeAdmissions = admissions.filter((a) => a.status === "Admitted");
@@ -60,6 +105,160 @@ export function Dashboard({ store, setActiveTab, setSelectedPatientId }: Dashboa
             Integrating advanced Google Gemini intelligence with clinical operations. Monitor vital telemetry, analyze patient flows, track pharmaceutical safety stocks, and authorize claims instantly.
           </p>
         </div>
+      </div>
+
+      {/* Dedicated AI 24-Hour Ward Summary Report Section */}
+      <div className="bg-white border border-slate-100 rounded-xl p-6 space-y-4 shadow-sm" id="ai_ward_summary_panel">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="text-left">
+            <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
+              Automated 24-Hour Ward Summary Co-Pilot
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Aggregates recent patient Transfers, vital signs Telemetry Anomalies, and Bed Occupancy into a clinical operations statement.
+            </p>
+          </div>
+          <div>
+            <button
+              onClick={triggerWardSummary}
+              disabled={generatingSummary}
+              className="w-full sm:w-auto bg-slate-900 hover:bg-slate-850 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all border border-slate-850"
+              id="btn_trigger_ward_summary"
+            >
+              {generatingSummary ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  <span>Aggregating Ward Logs...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Generate AI Ward Summary</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {generatingSummary && (
+          <div className="py-12 border border-dashed border-slate-100 rounded-lg flex flex-col items-center justify-center space-y-2.5">
+            <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+            <div className="text-center">
+              <span className="text-xs font-semibold text-slate-700 block">AI Agent Synthesizing EHR Telemetry</span>
+              <p className="text-[10px] text-slate-400">Consulting Gemini models to construct Operations briefing...</p>
+            </div>
+          </div>
+        )}
+
+        {wardSummaryReport && !generatingSummary && (
+          <div className="border border-slate-100/50 rounded-xl bg-slate-50/50 p-5 space-y-5 text-left animate-fadeIn" id="ai_ward_report_container">
+            <div className="flex flex-wrap justify-between items-center gap-4 pb-3 border-b border-slate-200/60">
+              <div className="flex items-center gap-2">
+                <Clipboard className="w-4 h-4 text-slate-600" />
+                <span className="font-mono text-[10px] font-bold text-slate-500 uppercase">WARD HEALTH REPORT COMPLETE • CLINICAL STATUS LEVEL</span>
+              </div>
+              <button
+                onClick={() => {
+                  const printWindow = window.open("", "_blank");
+                  if (!printWindow) return;
+                  const printingHtml = `
+                    <html>
+                      <head>
+                        <title>Ward Performance briefing - ${new Date().toLocaleDateString()}</title>
+                        <style>
+                          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+                          .hospital { text-transform: uppercase; font-size: 11px; tracking: 1.5px; font-weight: bold; color: #059669; margin-bottom: 4px; }
+                          h1 { font-size: 20px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 0; margin-bottom: 24px; }
+                          h2 { font-size: 13px; font-family: monospace; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; margin-top: 24px; padding-bottom: 4px; color: #334155; }
+                          .meta { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; }
+                          p { font-size: 13px; margin: 8px 0; }
+                          .bullets { font-size: 13px; margin-left: 20px; }
+                          .footer { margin-top: 48px; border-top: 1px dashed #cbd5e1; padding-top: 16px; font-size: 11px; color: #64748b; font-family: monospace; display: flex; justify-content: space-between; }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="hospital">HIMS Clinical Operations dashboard</div>
+                        <h1>Google AI 24-Hour Ward Summary</h1>
+                        <div class="meta">
+                          <div><strong>REPORT PERIOD:</strong> Last 24 Hours operations</div>
+                          <div><strong>TRANSITION STATUS:</strong> REVIEW COMPLETED</div>
+                          <div><strong>PRINT TIMESTAMP:</strong> ${new Date().toLocaleString()}</div>
+                        </div>
+                        <h2>1. CLINICAL EXECUTIVE SUMMARY</h2>
+                        <p>${wardSummaryReport.executiveSummary}</p>
+                        
+                        <h2>2. BED OCCUPANCY & CAPACITY METRICS</h2>
+                        <p>${wardSummaryReport.occupancyAnalysis}</p>
+                        
+                        <h2>3. RECENT TRANSFERS & ADMISSIONS ANALYSIS</h2>
+                        <p>${wardSummaryReport.transferInsights}</p>
+                        
+                        <h2>4. BIOMETRIC ANOMALIES & CLINICAL RISK EVALUATION</h2>
+                        <p>${wardSummaryReport.anomalyOverview}</p>
+                        
+                        <h2>5. KEY RECOMMENDATIONS FOR INCOMING DUTY STAFF</h2>
+                        <ul class="bullets">
+                          ${(wardSummaryReport.recommendations || []).map((rec: string) => `<li style="margin-bottom:6px;">${rec}</li>`).join("")}
+                        </ul>
+                        
+                        <div class="footer">
+                          <div>MEDSECURE COMPLIANCE RECORD • GOOGLE GEMINI POWERED ANALYSIS</div>
+                          <div>Chief Medical Officer signature: __________________________</div>
+                        </div>
+                        <script>
+                          window.onload = function() { window.print(); }
+                        </script>
+                      </body>
+                    </html>
+                  `;
+                  printWindow.document.write(printingHtml);
+                  printWindow.document.close();
+                }}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all border border-emerald-200/30"
+                id="btn_download_dashboard_pdf"
+              >
+                <span>Export Executive Briefing (PDF)</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-slate-700 text-xs">
+              <div className="space-y-4">
+                <div>
+                  <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-slate-400">Chief Executive Briefing</span>
+                  <p className="mt-1 text-slate-800 leading-relaxed font-normal bg-white p-3 border border-slate-100 rounded-lg">{wardSummaryReport.executiveSummary}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-slate-400">Occupancy & safety Index</span>
+                  <p className="mt-1 text-slate-800 leading-relaxed bg-white p-3 border border-slate-100 rounded-lg">{wardSummaryReport.occupancyAnalysis}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-slate-400">Department Transfers highlight</span>
+                  <p className="mt-1 text-slate-800 leading-relaxed bg-white p-3 border border-slate-100 rounded-lg">{wardSummaryReport.transferInsights}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-slate-400">Critical Alarms & Bio-Risks</span>
+                  <p className="mt-1 text-slate-800 leading-relaxed bg-white p-3 border border-slate-100 rounded-lg">{wardSummaryReport.anomalyOverview}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-emerald-50/40 border border-emerald-100/50 rounded-xl space-y-2 mt-2">
+              <h4 className="text-[10px] font-bold font-mono tracking-wider text-emerald-800 uppercase">Recommended Operations directives for transition crew</h4>
+              <ul className="text-xs text-slate-750 list-none pl-0 space-y-1.5">
+                {(wardSummaryReport.recommendations || []).map((rec: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="bg-emerald-500 text-white font-mono text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
+                    <span className="text-slate-700 leading-tight">{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Bento Grid */}

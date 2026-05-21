@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole } from "./types";
+import { db } from "./firebase";
+import { collection, getDocs, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+
 import {
   initialPatients,
   initialAppointments,
@@ -583,42 +586,96 @@ export function useHIMSStore() {
     saveState({ notifications: [] });
   };
 
-  const onboardEmployee = (emp: Employee) => {
+  const syncFirestoreData = async () => {
+    try {
+      const empSnap = await getDocs(collection(db, "employees"));
+      const fetchedEmps: Employee[] = [];
+      empSnap.forEach((doc) => {
+        fetchedEmps.push({ id: doc.id, ...doc.data() } as Employee);
+      });
+      if (fetchedEmps.length > 0) {
+        setEmployees(fetchedEmps);
+      }
+
+      const roleSnap = await getDocs(collection(db, "custom_roles"));
+      const fetchedRoles: CustomRole[] = [];
+      roleSnap.forEach((doc) => {
+        fetchedRoles.push({ id: doc.id, ...doc.data() } as CustomRole);
+      });
+      if (fetchedRoles.length > 0) {
+        setCustomRoles(fetchedRoles);
+      }
+    } catch (err) {
+      console.warn("Firestore data sync notice (requires full authorization context):", err);
+    }
+  };
+
+  const onboardEmployee = async (emp: Employee) => {
     const updated = [...employees, emp];
     saveState({ employees: updated });
     createLog("Admin Amit Joshi", "Admin", "Onboard Employee", "Human Resources", `Onboarded new employee ${emp.name} under role ${emp.role} (Dept: ${emp.department}) with custom RBAC access permissions.`);
+    
+    try {
+      await setDoc(doc(db, "employees", emp.id), emp);
+    } catch (err) {
+      console.warn("Firestore persist warning on onboarding:", err);
+    }
   };
 
-  const updateEmployeePermissions = (id: string, permittedModules: string[]) => {
+  const updateEmployeePermissions = async (id: string, permittedModules: string[]) => {
     const updated = employees.map((emp) => emp.id === id ? { ...emp, permittedModules } : emp);
     saveState({ employees: updated });
     const emp = employees.find((e) => e.id === id);
     if (emp) {
       createLog("Admin Amit Joshi", "Admin", "Update Access Controls", "Human Resources", `Modified RBAC permissions for employee ${emp.name} (${emp.role}) to access: [${permittedModules.join(", ")}].`);
     }
+
+    try {
+      await updateDoc(doc(db, "employees", id), { permittedModules });
+    } catch (err) {
+      console.warn("Firestore persist warning on permission update:", err);
+    }
   };
 
-  const removeEmployee = (id: string) => {
+  const removeEmployee = async (id: string) => {
     const emp = employees.find((e) => e.id === id);
     const updated = employees.filter((emp) => emp.id !== id);
     saveState({ employees: updated });
     if (emp) {
       createLog("Admin Amit Joshi", "Admin", "Offboard Employee", "Human Resources", `Offboarded clinical/operational staff client ${emp.name} and permanently revoked HIMS environment access credentials.`);
     }
+
+    try {
+      await deleteDoc(doc(db, "employees", id));
+    } catch (err) {
+      console.warn("Firestore persist warning on employee removal:", err);
+    }
   };
 
-  const addCustomRole = (role: CustomRole) => {
+  const addCustomRole = async (role: CustomRole) => {
     const updated = [...customRoles, role];
     saveState({ customRoles: updated });
     createLog("Admin Amit Joshi", "Admin", "Create Custom Role", "Human Resources", `Configured new custom RBAC role archetype: "${role.name}" with default modules [${role.defaultPermittedModules.join(", ")}].`);
+    
+    try {
+      await setDoc(doc(db, "custom_roles", role.id), role);
+    } catch (err) {
+      console.warn("Firestore persist warning on custom role creation:", err);
+    }
   };
 
-  const removeCustomRole = (id: string) => {
+  const removeCustomRole = async (id: string) => {
     const target = customRoles.find((r) => r.id === id);
     const updated = customRoles.filter((r) => r.id !== id);
     saveState({ customRoles: updated });
     if (target) {
       createLog("Admin Amit Joshi", "Admin", "Delete Custom Role", "Human Resources", `Successfully decommissioned custom role archetype: "${target.name}".`);
+    }
+
+    try {
+      await deleteDoc(doc(db, "custom_roles", id));
+    } catch (err) {
+      console.warn("Firestore persist warning on custom role deletion:", err);
     }
   };
 
@@ -706,7 +763,8 @@ export function useHIMSStore() {
     removeEmployee,
     customRoles,
     addCustomRole,
-    removeCustomRole
+    removeCustomRole,
+    syncFirestoreData
   };
 }
 export type HIMSStore = ReturnType<typeof useHIMSStore>;
