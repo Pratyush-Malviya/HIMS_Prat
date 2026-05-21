@@ -12,6 +12,7 @@ export function PharmacyModule({ store }: PharmacyModuleProps) {
 
   // Search filter
   const [searchTerm, setSearchTerm] = useState("");
+  const [dosageFilter, setDosageFilter] = useState("");
 
   // Form: Adding new medicine formulations
   const [newMed, setNewMed] = useState({
@@ -52,10 +53,12 @@ export function PharmacyModule({ store }: PharmacyModuleProps) {
     }
   };
 
-  const filteredMeds = medicines.filter((m) =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMeds = medicines.filter((m) => {
+    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDosage = !dosageFilter || (m.dosageForm || "").toLowerCase().includes(dosageFilter.toLowerCase());
+    return matchesSearch && matchesDosage;
+  });
 
   const lowStocks = medicines.filter((m) => m.stockCount <= m.safetyStock);
 
@@ -265,16 +268,30 @@ export function PharmacyModule({ store }: PharmacyModuleProps) {
               <p className="text-xs text-slate-400">Total formulary cards active inside dispensary compartments</p>
             </div>
 
-            {/* Catalog search */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search drug by name or row shelf..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-60 focus:outline-none focus:border-emerald-500"
-              />
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+            {/* Catalog search and dosageForm filter */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search drug by name or shelf..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 sm:w-56 focus:outline-none focus:border-emerald-500"
+                />
+                <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              </div>
+              
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Filter by Dosage Form (e.g., Tablet)..."
+                  value={dosageFilter}
+                  onChange={(e) => setDosageFilter(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 sm:w-56 focus:outline-none focus:border-emerald-500"
+                  id="dosage_form_filter_input"
+                />
+                <Pill className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              </div>
             </div>
           </div>
 

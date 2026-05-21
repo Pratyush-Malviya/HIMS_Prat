@@ -451,6 +451,8 @@ export default function App() {
 
             <button
               onClick={async () => {
+                const confirmed = window.confirm("Are you sure you want to revoke your session and log out?");
+                if (!confirmed) return;
                 await signOut(auth);
                 setAuthenticatedUser(null);
                 setViewMode("saas");
@@ -584,20 +586,20 @@ export default function App() {
             <>
               {/* Dimmed Background Backdrop */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                animate={{ opacity: 0.5, backdropFilter: "blur(4px)" }}
+                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
                 onClick={() => setMobileSidebarOpen(false)}
-                className="fixed inset-0 bg-black z-40 lg:hidden"
+                className="fixed inset-0 bg-black/60 z-40 lg:hidden"
               />
 
               {/* Slider drawer panel */}
               <motion.aside
-                initial={{ x: "-100%" }}
+                initial={{ x: "100%" }}
                 animate={{ x: 0 }}
-                exit={{ x: "-100%" }}
-                transition={{ type: "tween", duration: 0.25 }}
-                className="fixed inset-y-0 left-0 w-80 max-w-sm bg-slate-900 text-white z-50 lg:hidden flex flex-col shadow-2xl"
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed inset-y-0 right-0 w-80 max-w-sm bg-slate-900 text-white z-50 lg:hidden flex flex-col shadow-2xl"
               >
                  {/* Header */}
                 <div className="p-4 border-b border-slate-800 flex justify-between items-center">
@@ -685,6 +687,8 @@ export default function App() {
 
                     <button
                       onClick={async () => {
+                        const confirmed = window.confirm("Are you sure you want to revoke your session and log out?");
+                        if (!confirmed) return;
                         await signOut(auth);
                         setAuthenticatedUser(null);
                         setMobileSidebarOpen(false);

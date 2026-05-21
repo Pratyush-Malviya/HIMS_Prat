@@ -357,7 +357,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
     : null;
 
   return (
-    <div className={`${bgCanvasClass} text-slate-900 min-h-screen ${fontClass} antialiased`}>
+    <div className={`${bgCanvasClass} text-slate-900 min-h-screen ${fontClass} antialiased overflow-x-hidden w-full relative`}>
       {/* 🟢 CLINICAL BAR (HIGH VALUE VALUE-PROPS) */}
       <div className="bg-slate-950 text-slate-300 text-xs sm:text-xs py-3 px-6 font-mono font-medium tracking-wide text-center flex items-center justify-center gap-2 border-b border-slate-905 shadow-sm leading-relaxed">
         <HeartPulse className="w-4 h-4 text-red-500 animate-pulse shrink-0" />
@@ -1475,8 +1475,19 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
           </div>
         </div>
         
-        <div className="max-w-4xl mx-auto text-center text-[11px] text-slate-550 text-slate-500 pt-8 mt-8 border-t border-slate-900 font-mono leading-relaxed">
-          © 2026 MediFlow Technologies. Optimized for highly responsive sandboxed care.
+        <div className="max-w-4xl mx-auto text-center text-[11px] text-slate-550 text-slate-500 pt-8 mt-8 border-t border-slate-900 font-mono leading-relaxed space-y-1.5">
+          <div>© 2026 MediFlow Technologies. Optimized for highly responsive sandboxed care.</div>
+          <div className="text-slate-400">
+            Developed by{" "}
+            <a 
+              href="https://www.linkedin.com/in/pratyushmalviy" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className={`hover:${colorClasses.text} text-slate-300 font-semibold transition-colors underline decoration-dotted underline-offset-2`}
+            >
+              Pratyush Malviya
+            </a>
+          </div>
         </div>
       </footer>
 
