@@ -41,6 +41,9 @@ interface AdminModuleProps {
   setCurrentUser?: (user: { name: string; role: string }) => void;
   activeSubTab?: string;
   setActiveSubTab?: (sub: string) => void;
+  adminUid?: string;
+  adminCreatedAt?: string;
+  adminIsPaid?: boolean;
 }
 
 export function AdminModule({
@@ -48,7 +51,10 @@ export function AdminModule({
   currentUser,
   setCurrentUser,
   activeSubTab = "directory",
-  setActiveSubTab
+  setActiveSubTab,
+  adminUid = "",
+  adminCreatedAt = "",
+  adminIsPaid = false
 }: AdminModuleProps) {
   const {
     auditLogs,
@@ -437,7 +443,10 @@ export function AdminModule({
         email: newEmpEmail.trim(),
         role: newEmpRole,
         department: newEmpDept,
-        permittedModules: newEmpPerms
+        permittedModules: newEmpPerms,
+        adminId: adminUid,
+        parentAdminCreatedAt: adminCreatedAt || new Date().toISOString(),
+        parentAdminIsPaid: adminIsPaid
       };
 
       // 2. Write to `/employees/{uid}` Firestore doc
@@ -455,7 +464,17 @@ export function AdminModule({
       handleRoleChange(newEmpRole);
     } catch (err: any) {
       console.error("Failed to onboard employee to Firebase:", err);
-      alert(`Failed to onboard employee: ${err.message || err}`);
+      let errMsg = err.message || String(err);
+      const errCode = err.code || "";
+      
+      if (errCode === "auth/email-already-in-use" || errMsg.includes("auth/email-already-in-use")) {
+        errMsg = "This email is already registered. Staff accounts must have a unique email address.";
+      } else if (errCode === "auth/weak-password" || errMsg.includes("auth/weak-password")) {
+        errMsg = "Password is too weak. Security rules require passwords to contain at least 6 characters.";
+      } else if (errCode === "auth/invalid-email" || errMsg.includes("auth/invalid-email")) {
+        errMsg = "The email address provided is invalid. Please double-check the formatting.";
+      }
+      alert(`Failed to onboard employee: ${errMsg}`);
     } finally {
       setIsOnboarding(false);
       await cleanup();

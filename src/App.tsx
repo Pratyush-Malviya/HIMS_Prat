@@ -40,6 +40,7 @@ import { AIChatBot } from "./components/AIChatBot";
 import { SaaSLandingPage } from "./components/SaaSLandingPage";
 import { LoginPortal } from "./components/LoginPortal";
 import { PaymentPage } from "./components/PaymentPage";
+import { SuperAdminModule } from "./components/SuperAdminModule";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -95,6 +96,36 @@ export default function App() {
           const empDoc = await getDoc(doc(db, "employees", firebaseUser.uid));
           if (empDoc.exists()) {
             const data = empDoc.data();
+            let parentAdminCreatedAt = data.parentAdminCreatedAt;
+            let parentAdminIsPaid = data.parentAdminIsPaid;
+            let parentAdminUid = data.adminId;
+
+            if (parentAdminUid) {
+              try {
+                const pDoc = await getDoc(doc(db, "admins", parentAdminUid));
+                if (pDoc.exists()) {
+                  const pData = pDoc.data();
+                  parentAdminCreatedAt = pData.createdAt;
+                  parentAdminIsPaid = pData.isPaid;
+                }
+              } catch (err) {
+                console.warn("Failed fetching parent admin doc during employee reload:", err);
+              }
+            } else {
+              try {
+                const { getDocs, collection } = await import("firebase/firestore");
+                const adminsSnap = await getDocs(collection(db, "admins"));
+                if (!adminsSnap.empty) {
+                  const admData = adminsSnap.docs[0].data();
+                  parentAdminUid = admData.uid;
+                  parentAdminCreatedAt = admData.createdAt;
+                  parentAdminIsPaid = admData.isPaid;
+                }
+              } catch (err) {
+                console.warn("Fallback admin lookup failed during employee reload:", err);
+              }
+            }
+
             setAuthenticatedUser({
               uid: firebaseUser.uid,
               email: firebaseUser.email || "",
@@ -102,7 +133,10 @@ export default function App() {
               name: data.name,
               department: data.department,
               permittedModules: data.permittedModules || ["dashboard"],
-              isAdmin: false
+              isAdmin: false,
+              parentAdminUid,
+              parentAdminCreatedAt,
+              parentAdminIsPaid
             });
             await store.syncFirestoreData();
           } else {
@@ -110,17 +144,20 @@ export default function App() {
             const admDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
             if (admDoc.exists()) {
               const data = admDoc.data();
+              const isSuper = data.role === "Super Admin" || firebaseUser.email?.trim().toLowerCase() === "malviya.pratyush26@gmail.com";
               setAuthenticatedUser({
                 uid: firebaseUser.uid,
                 email: firebaseUser.email || "",
-                role: "Admin",
+                role: isSuper ? "Super Admin" : "Hospital Admin",
                 name: data.name,
                 department: "Finance Office",
-                permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"],
+                permittedModules: isSuper 
+                  ? ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "super_admin"]
+                  : ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"],
                 isAdmin: true,
                 createdAt: data.createdAt || new Date().toISOString(),
-                isPaid: !!data.isPaid,
-                paymentPlan: data.paymentPlan || "Free Trial (14-Days)"
+                isPaid: isSuper ? true : !!data.isPaid,
+                paymentPlan: isSuper ? "SaaS Platform Owner" : (data.paymentPlan || "Free Trial (14-Days)")
               });
               await store.syncFirestoreData();
             } else {
@@ -167,19 +204,50 @@ export default function App() {
 
   // Calculate trial information
   const getTrialDaysInfo = () => {
-    if (!authenticatedUser || !authenticatedUser.isAdmin) {
+    if (!authenticatedUser) {
       return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
     }
-    if (authenticatedUser.isPaid) {
+
+    // Super Admin is completely exempt from trial limits and payment screens
+    if (
+      authenticatedUser.role === "Super Admin" || 
+      authenticatedUser.email?.trim().toLowerCase() === "malviya.pratyush26@gmail.com"
+    ) {
       return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
     }
-    const createdDate = new Date(authenticatedUser.createdAt || new Date());
-    const currentDate = new Date();
-    const diffTime = currentDate.getTime() - createdDate.getTime();
-    const elapsedDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-    const daysRemaining = Math.max(0, 14 - elapsedDays);
-    const isTrialExpired = elapsedDays >= 14;
-    return { elapsedDays, daysRemaining, isTrialExpired };
+
+    // If Hospital / Org Admin
+    if (authenticatedUser.isAdmin) {
+      if (authenticatedUser.isPaid) {
+        return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
+      }
+      const createdDate = new Date(authenticatedUser.createdAt || new Date());
+      const currentDate = new Date();
+      const diffTime = currentDate.getTime() - createdDate.getTime();
+      const elapsedDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      const daysRemaining = Math.max(0, 14 - elapsedDays);
+      const isTrialExpired = elapsedDays >= 14;
+      return { elapsedDays, daysRemaining, isTrialExpired };
+    }
+
+    // If Employee / Hospital User
+    const parentCreatedAt = (authenticatedUser as any).parentAdminCreatedAt;
+    const parentIsPaid = (authenticatedUser as any).parentAdminIsPaid;
+
+    if (parentCreatedAt) {
+      if (parentIsPaid) {
+        return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
+      }
+      const createdDate = new Date(parentCreatedAt);
+      const currentDate = new Date();
+      const diffTime = currentDate.getTime() - createdDate.getTime();
+      const elapsedDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      const daysRemaining = Math.max(0, 14 - elapsedDays);
+      const isTrialExpired = elapsedDays >= 14;
+      return { elapsedDays, daysRemaining, isTrialExpired };
+    }
+
+    return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
   };
 
   const { elapsedDays, daysRemaining, isTrialExpired } = getTrialDaysInfo();
@@ -196,7 +264,7 @@ export default function App() {
           uid: authenticatedUser.uid,
           email: authenticatedUser.email,
           name: authenticatedUser.name,
-          role: "Admin",
+          role: "Hospital Admin",
           createdAt: fifteenDaysAgoISO,
           isPaid: false,
           paymentPlan: "Free Trial (14-Days)"
@@ -283,9 +351,10 @@ export default function App() {
     return (
       <PaymentPage 
         currentUserEmail={authenticatedUser.email}
-        adminUid={authenticatedUser.uid}
-        adminName={authenticatedUser.name}
-        createdAt={authenticatedUser.createdAt || new Date().toISOString()}
+        adminUid={authenticatedUser.isAdmin ? authenticatedUser.uid : ((authenticatedUser as any).parentAdminUid || "")}
+        adminName={authenticatedUser.isAdmin ? authenticatedUser.name : "Chief Administrator"}
+        createdAt={authenticatedUser.isAdmin ? (authenticatedUser.createdAt || "") : ((authenticatedUser as any).parentAdminCreatedAt || "")}
+        isEmployee={!authenticatedUser.isAdmin}
         onPaymentSuccess={async (planName) => {
           setAuthenticatedUser(prev => prev ? {
             ...prev,
@@ -306,7 +375,7 @@ export default function App() {
 
 
   // Define sidebar navigation structure with items and subitems
-  const sidebarNavigation = [
+  const baseSidebarNavigation = [
     {
       id: "dashboard_group",
       title: "Operations Hub",
@@ -357,7 +426,23 @@ export default function App() {
     }
   ];
 
-  const hasAccessToActiveTab = activeEmployee.permittedModules.includes(activeTab);
+  const isSuperAdminAccount = authenticatedUser?.role === "Super Admin";
+
+  const sidebarNavigation = isSuperAdminAccount
+    ? [
+        {
+          id: "super_admin_group",
+          title: "SaaS Control Tower",
+          icon: ShieldCheck,
+          subItems: [
+            { id: "super_admin", subId: "hospitals", label: "SaaS Workspace Desk", icon: ShieldCheck, desc: "Manage SaaS Hospital tenants & plans" }
+          ]
+        },
+        ...baseSidebarNavigation
+      ]
+    : baseSidebarNavigation;
+
+  const hasAccessToActiveTab = isSuperAdminAccount || activeEmployee.permittedModules.includes(activeTab);
 
   // Group expander toggle helper
   const toggleGroup = (groupId: string) => {
@@ -853,12 +938,18 @@ export default function App() {
                     {activeTab === "finance" && (
                       <FinanceBillingModule store={store} />
                     )}
+                    {activeTab === "super_admin" && (
+                      <SuperAdminModule store={store} currentUser={currentUser} />
+                    )}
                     {activeTab === "admin" && (
                       <AdminModule 
                         store={store} 
                         currentUser={currentUser} 
                         activeSubTab={activeSubTab}
                         setActiveSubTab={setActiveSubTab}
+                        adminUid={authenticatedUser?.uid || ""}
+                        adminCreatedAt={authenticatedUser?.createdAt || ""}
+                        adminIsPaid={authenticatedUser ? !!authenticatedUser.isPaid : false}
                       />
                     )}
                   </>

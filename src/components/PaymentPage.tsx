@@ -20,6 +20,7 @@ interface PaymentPageProps {
   createdAt: string;
   onPaymentSuccess: (plan: string) => void;
   onSignOut: () => void;
+  isEmployee?: boolean;
 }
 
 export function PaymentPage({ 
@@ -28,7 +29,8 @@ export function PaymentPage({
   adminName, 
   createdAt, 
   onPaymentSuccess, 
-  onSignOut 
+  onSignOut,
+  isEmployee = false
 }: PaymentPageProps) {
   const [selectedPlan, setSelectedPlan] = useState<string>("Core");
   const [cardNumber, setCardNumber] = useState<string>("4242 •••• •••• 4242");
@@ -101,7 +103,7 @@ export function PaymentPage({
         uid: adminUid,
         email: currentUserEmail,
         name: adminName,
-        role: "Admin",
+        role: "Hospital Admin",
         createdAt: createdAt || new Date().toISOString(),
         isPaid: true,
         paymentPlan: activePlanDetails.name
@@ -300,34 +302,48 @@ export function PaymentPage({
             </div>
 
             <div className="space-y-4 pt-6">
-              <div className="p-3 rounded-lg border border-emerald-500/10 bg-emerald-500/5 flex items-start gap-1.5 text-[10px] font-mono text-emerald-400 leading-relaxed">
-                <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>Simulated secure sandbox gateway is operational. Enter dummy card values to trigger conversion safely.</span>
-              </div>
-
-              {success ? (
-                <div className="bg-emerald-500 text-slate-950 font-bold p-3 rounded-xl flex items-center justify-center gap-2 text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-slate-950 animate-bounce" />
-                  <span>Premium Conversion Success! Redirecting...</span>
+              {isEmployee ? (
+                <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-250 flex flex-col gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold font-mono text-amber-400">
+                    <Lock className="w-4 h-4 shrink-0" />
+                    <span>HOSPITAL WORKSPACE SUSPENDED</span>
+                  </div>
+                  <span className="leading-relaxed">
+                    The 14-day free trial limit for this Hospital/Organization has concluded. Please contact your Hospital Administrator (<strong>{adminName || "Chief Administrator"}</strong>) to complete subscription checkout to restore active bed monitoring and secure SOAP clinical record access.
+                  </span>
                 </div>
               ) : (
-                <button 
-                  type="submit"
-                  disabled={isProcessing}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all shadow-md shadow-emerald-500/10 active:scale-95"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Authorizing Sandbox Payment...</span>
-                    </>
+                <>
+                  <div className="p-3 rounded-lg border border-emerald-500/10 bg-emerald-500/5 flex items-start gap-1.5 text-[10px] font-mono text-emerald-400 leading-relaxed">
+                    <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>Simulated secure sandbox gateway is operational. Enter dummy card values to trigger conversion safely.</span>
+                  </div>
+
+                  {success ? (
+                    <div className="bg-emerald-500 text-slate-950 font-bold p-3 rounded-xl flex items-center justify-center gap-2 text-xs">
+                      <CheckCircle2 className="w-4 h-4 text-slate-950 animate-bounce" />
+                      <span>Premium Conversion Success! Redirecting...</span>
+                    </div>
                   ) : (
-                    <>
-                      <span>Convert and Activate {activePlanDetails.name}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
+                    <button 
+                      type="submit"
+                      disabled={isProcessing}
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all shadow-md shadow-emerald-500/10 active:scale-95"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Authorizing Sandbox Payment...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Convert and Activate {activePlanDetails.name}</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
+                </>
               )}
             </div>
           </form>
