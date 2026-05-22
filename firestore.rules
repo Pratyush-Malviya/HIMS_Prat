@@ -25,7 +25,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        request.auth.token.email == "malviya.pratyush26@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
     // Helper to validate Admin document shape
@@ -36,9 +39,7 @@ service cloud.firestore {
         && data.role is string && data.role.size() <= 100
         && data.createdAt is string && data.createdAt.size() <= 100
         && data.isPaid is bool
-        && data.paymentPlan is string && data.paymentPlan.size() <= 100
-        && data.keys().hasAll(['uid', 'email', 'name', 'role', 'createdAt', 'isPaid', 'paymentPlan']) 
-        && data.keys().size() == 7;
+        && data.paymentPlan is string && data.paymentPlan.size() <= 100;
     }
 
     // Helper to validate Employee document shape
@@ -48,45 +49,65 @@ service cloud.firestore {
         && data.email is string && data.email.size() <= 200
         && data.role is string && data.role.size() <= 100
         && data.department is string && data.department.size() <= 100
-        && data.permittedModules is list && data.permittedModules.size() <= 20
-        && data.keys().hasAll(['id', 'name', 'email', 'role', 'department', 'permittedModules'])
-        && data.keys().size() == 6;
+        && data.permittedModules is list && data.permittedModules.size() <= 20;
     }
 
     // Helper to validate ExpiredTrial document shape
     function isValidExpiredTrial(data) {
       return data.email is string && data.email.size() <= 200
-        && data.expiredAt is string && data.expiredAt.size() <= 100
-        && data.keys().hasAll(['email', 'expiredAt'])
-        && data.keys().size() == 2;
+        && data.expiredAt is string && data.expiredAt.size() <= 100;
+    }
+
+    // Helper to validate CustomRole document shape
+    function isValidCustomRole(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 200
+        && data.defaultDepartment is string && data.defaultDepartment.size() <= 200
+        && data.defaultPermittedModules is list && data.defaultPermittedModules.size() <= 20;
     }
 
     // Admin Account operations
     match /admins/{adminId} {
-      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      // Allow any signed-in user to get a specific admin document by direct ID (used on mount/lookup)
+      allow get: if isSignedIn();
+      
+      // Restrict bulk listing to the owner or Super Admin
+      allow list: if isSignedIn() && (request.auth.uid == adminId || request.auth.token.email == "malviya.pratyush26@gmail.com");
       
       // Allow creation during signup, bootstrapping the specified owner account
-      allow create: if isSignedIn() && request.auth.uid == adminId && isValidAdmin(incoming()) 
-        && (request.auth.token.email == "malviya.pratyush26@gmail.com" || request.auth.token.email_verified == true);
+      allow create: if isSignedIn() && request.auth.uid == adminId && isValidAdmin(incoming());
       
-      // Admins can update their own accounts, properties must match
-      allow update: if isSignedIn() && request.auth.uid == adminId && isValidAdmin(incoming()) 
-        && incoming().uid == existing().uid && incoming().email == existing().email;
+      // Admins can update their own accounts, properties must match; or Super Admin can update
+      allow update: if isSignedIn() && (
+        (request.auth.uid == adminId && isValidAdmin(incoming())) ||
+        (request.auth.token.email == "malviya.pratyush26@gmail.com" && isValidAdmin(incoming()))
+      );
       
-      // Only another admin can delete an admin record
-      allow delete: if isAdmin() && request.auth.uid != adminId;
+      // Only Super Admin can delete an admin record
+      allow delete: if isSignedIn() && request.auth.token.email == "malviya.pratyush26@gmail.com" && request.auth.uid != adminId;
     }
 
     // Employee Account operational privileges (managed strictly by Admins)
     match /employees/{employeeId} {
-      allow read: if isSignedIn() && (request.auth.uid == employeeId || isAdmin());
+      // Allow any signed-in workspace user to fetch a single employee by ID
+      allow get: if isSignedIn();
+      
+      // Restrict bulk directory listing to Admins
+      allow list: if isAdmin();
       
       allow create: if isAdmin() && isValidId(employeeId) && isValidEmployee(incoming()) && incoming().id == employeeId;
       
-      allow update: if isAdmin() && isValidId(employeeId) && isValidEmployee(incoming()) 
-        && incoming().id == existing().id && incoming().email == existing().email;
+      allow update: if isAdmin() && isValidId(employeeId) && isValidEmployee(incoming()) && incoming().id == existing().id;
       
       allow delete: if isAdmin() && isValidId(employeeId);
+    }
+
+    // Custom Roles (managed strictly by Admins)
+    match /custom_roles/{roleId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidId(roleId) && isValidCustomRole(incoming()) && incoming().id == roleId;
+      allow update: if isAdmin() && isValidId(roleId) && isValidCustomRole(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin() && isValidId(roleId);
     }
 
     // Expired Trials Collection Tracker

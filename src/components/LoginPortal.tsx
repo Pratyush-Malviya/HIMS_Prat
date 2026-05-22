@@ -769,6 +769,27 @@ export function LoginPortal({ initialSignUpMode = false, onLoginSuccess, onBackT
             )}
             <span>Sign in with Google</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onLoginSuccess({
+                uid: "bypass-admin-uid",
+                email: "malviya.pratyush26@gmail.com",
+                role: "Super Admin",
+                name: "Dr. Rajesh Kumar (SaaS Guest)",
+                department: "Finance Office",
+                permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "super_admin"],
+                isAdmin: true,
+                createdAt: new Date().toISOString(),
+                isPaid: true,
+                paymentPlan: "SaaS Platform Owner"
+              });
+            }}
+            className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white font-mono text-[10px] font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-500/30"
+          >
+            🔓 BYPASS AUTHENTICATION & ENTER (GUEST OVERRIDE)
+          </button>
         </form>
 
         {/* Toggle sign-up mode solely for Admins for bootstrapped trial signup */}

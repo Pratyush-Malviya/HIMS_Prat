@@ -42,7 +42,7 @@ import { LoginPortal } from "./components/LoginPortal";
 import { PaymentPage } from "./components/PaymentPage";
 import { SuperAdminModule } from "./components/SuperAdminModule";
 import { auth, db } from "./firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function App() {
@@ -87,95 +87,19 @@ export default function App() {
   // Selected Patient for global context routing
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
-  // Sync session on mount
+  // Sync session on mount with authentication bypassed
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // 1. Check if employee
-          const empDoc = await getDoc(doc(db, "employees", firebaseUser.uid));
-          if (empDoc.exists()) {
-            const data = empDoc.data();
-            let parentAdminCreatedAt = data.parentAdminCreatedAt;
-            let parentAdminIsPaid = data.parentAdminIsPaid;
-            let parentAdminUid = data.adminId;
-
-            if (parentAdminUid) {
-              try {
-                const pDoc = await getDoc(doc(db, "admins", parentAdminUid));
-                if (pDoc.exists()) {
-                  const pData = pDoc.data();
-                  parentAdminCreatedAt = pData.createdAt;
-                  parentAdminIsPaid = pData.isPaid;
-                }
-              } catch (err) {
-                console.warn("Failed fetching parent admin doc during employee reload:", err);
-              }
-            } else {
-              try {
-                const { getDocs, collection } = await import("firebase/firestore");
-                const adminsSnap = await getDocs(collection(db, "admins"));
-                if (!adminsSnap.empty) {
-                  const admData = adminsSnap.docs[0].data();
-                  parentAdminUid = admData.uid;
-                  parentAdminCreatedAt = admData.createdAt;
-                  parentAdminIsPaid = admData.isPaid;
-                }
-              } catch (err) {
-                console.warn("Fallback admin lookup failed during employee reload:", err);
-              }
-            }
-
-            setAuthenticatedUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || "",
-              role: data.role,
-              name: data.name,
-              department: data.department,
-              permittedModules: data.permittedModules || ["dashboard"],
-              isAdmin: false,
-              parentAdminUid,
-              parentAdminCreatedAt,
-              parentAdminIsPaid
-            });
-            await store.syncFirestoreData();
-          } else {
-            // 2. Check if admin
-            const admDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
-            if (admDoc.exists()) {
-              const data = admDoc.data();
-              const isSuper = data.role === "Super Admin" || firebaseUser.email?.trim().toLowerCase() === "malviya.pratyush26@gmail.com";
-              setAuthenticatedUser({
-                uid: firebaseUser.uid,
-                email: firebaseUser.email || "",
-                role: isSuper ? "Super Admin" : "Hospital Admin",
-                name: data.name,
-                department: "Finance Office",
-                permittedModules: isSuper 
-                  ? ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "super_admin"]
-                  : ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"],
-                isAdmin: true,
-                createdAt: data.createdAt || new Date().toISOString(),
-                isPaid: isSuper ? true : !!data.isPaid,
-                paymentPlan: isSuper ? "SaaS Platform Owner" : (data.paymentPlan || "Free Trial (14-Days)")
-              });
-              await store.syncFirestoreData();
-            } else {
-              // Sign out if found in neither directory
-              await signOut(auth);
-              setAuthenticatedUser(null);
-            }
-          }
-        } catch (e) {
-          console.error("Authentication setup error on mount: ", e);
-        }
-      } else {
-        setAuthenticatedUser(null);
+    const bypassInit = async () => {
+      try {
+        console.log("Auth-Bypassed: Initializing guest session and loading systems offline storage/sync...");
+        await store.syncFirestoreData();
+      } catch (e) {
+        console.warn("Bypass store sync returned remarks:", e);
+      } finally {
+        setAuthChecking(false);
       }
-      setAuthChecking(false);
-    });
-
-    return () => unsubscribe();
+    };
+    bypassInit();
   }, []);
 
   // Map active session user and role
@@ -321,9 +245,37 @@ export default function App() {
     return (
       <SaaSLandingPage 
         store={store}
-        onLaunchApp={(signUpMode) => {
+        onLaunchApp={(role) => {
+          if (role === "Super Admin") {
+            setAuthenticatedUser({
+              uid: "bypass-super-admin-uid",
+              email: "malviya.pratyush26@gmail.com",
+              role: "Super Admin",
+              name: "Dr. Rajesh Kumar (SaaS Owner)",
+              department: "Finance Office",
+              permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "super_admin"],
+              isAdmin: true,
+              createdAt: new Date().toISOString(),
+              isPaid: true,
+              paymentPlan: "SaaS Platform Owner"
+            });
+            setActiveTab("dashboard");
+          } else {
+            setAuthenticatedUser({
+              uid: "bypass-hospital-uid",
+              email: "hospital-admin@mediflow.com",
+              role: "Hospital Admin",
+              name: "Dr. Amanda Mercer (Hospital Admin)",
+              department: "Clinical Operations",
+              permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"],
+              isAdmin: true,
+              createdAt: new Date().toISOString(),
+              isPaid: true,
+              paymentPlan: "Enterprise EHR"
+            });
+            setActiveTab("dashboard");
+          }
           setViewMode("app");
-          setInitialSignUp(!!signUpMode);
         }} 
       />
     );

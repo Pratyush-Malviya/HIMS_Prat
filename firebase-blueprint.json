@@ -68,6 +68,26 @@
         }
       },
       "required": ["email", "expiredAt"]
+    },
+    "customRole": {
+      "title": "Custom Role",
+      "description": "Custom role archetype with standard module mappings",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "defaultDepartment": {
+          "type": "string"
+        },
+        "defaultPermittedModules": {
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "defaultDepartment", "defaultPermittedModules"]
     }
   },
   "firestore": {
@@ -82,6 +102,10 @@
     "expired_trials/{emailId}": {
       "schema": "expiredTrial",
       "description": "Log of unique emails that have completed free test trial usage"
+    },
+    "custom_roles/{roleId}": {
+      "schema": "customRole",
+      "description": "Custom role templates with predefined configurations created by admin"
     }
   }
 }

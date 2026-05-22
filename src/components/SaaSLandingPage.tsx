@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 interface SaaSLandingPageProps {
-  onLaunchApp: (signUpMode?: boolean) => void;
+  onLaunchApp: (role: "Hospital Admin" | "Super Admin") => void;
   store?: any;
 }
 
@@ -50,6 +50,7 @@ interface PainPointSlide {
 }
 
 export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   // Pricing Calculator State
   const [bedCapacity, setBedCapacity] = useState<number>(150);
   const [useAIModules, setUseAIModules] = useState<boolean>(true);
@@ -386,14 +387,14 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <button 
-            onClick={() => onLaunchApp(false)}
+            onClick={() => setIsRoleModalOpen(true)}
             className="hidden md:block text-slate-650 hover:text-slate-950 text-sm font-medium px-4 py-2 border border-slate-200 hover:border-slate-350 bg-white rounded-xl shadow-xs transition-all active:scale-95"
           >
             Clinical Sign In
           </button>
           
           <button 
-            onClick={() => onLaunchApp(true)}
+            onClick={() => setIsRoleModalOpen(true)}
             className={`hidden sm:flex ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-sm font-bold px-5 py-2.5 rounded-xl items-center gap-2 transition-all shadow-md ${colorClasses.shadow} active:scale-95`}
             id="saas_header_launch_app"
           >
@@ -403,7 +404,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
 
           {/* Quick Sandbox Trigger for mobile - Sleek & compact */}
           <button 
-            onClick={() => onLaunchApp(true)}
+            onClick={() => setIsRoleModalOpen(true)}
             className={`sm:hidden ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1 transition-all shadow-xs active:scale-95`}
           >
             <span>Sandbox</span>
@@ -471,7 +472,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
               <button 
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  onLaunchApp(false);
+                  setIsRoleModalOpen(true);
                 }}
                 className="w-full text-center text-slate-700 hover:text-slate-950 text-xs sm:text-sm font-semibold py-2.5 border border-slate-200 bg-white rounded-xl shadow-xs transition-colors"
               >
@@ -480,12 +481,12 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
               <button 
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  onLaunchApp(true);
+                  setIsRoleModalOpen(true);
                 }}
                 className={`w-full text-center ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm`}
               >
                 <span>Activate Sandbox</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 cursor-pointer" />
               </button>
             </div>
           </div>
@@ -518,7 +519,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
         {/* Clean Call To Actions */}
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
           <button 
-            onClick={() => onLaunchApp(true)}
+            onClick={() => setIsRoleModalOpen(true)}
             className={`w-full sm:w-auto ${colorClasses.bg} ${colorClasses.hoverBg} text-white font-bold text-base px-8 py-4.5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg ${colorClasses.shadow} active:scale-98`}
             id="saas_hero_demo_btn"
           >
@@ -818,7 +819,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                 💡 Want to test these configurations side-by-side with live database updates? Launch our isolated clinical sandbox.
               </span>
               <button 
-                onClick={() => onLaunchApp(true)}
+                onClick={() => setIsRoleModalOpen(true)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-555 bg-emerald-700 text-white rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
               >
                 Test Live Sandbox Solutions
@@ -1042,7 +1043,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                         ✨ Multi-user updates broadcast seamlessly in dev workspace environments. Create an interactive clinic now to experiment.
                       </p>
                       <button
-                        onClick={() => onLaunchApp(true)}
+                        onClick={() => setIsRoleModalOpen(true)}
                         className={`w-full ${colorClasses.bg} ${colorClasses.hoverBg} text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer`}
                       >
                         <span>Evaluate Isolated Live Modules</span>
@@ -1254,7 +1255,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
               </p>
             </div>
             <button 
-              onClick={() => onLaunchApp(true)}
+              onClick={() => setIsRoleModalOpen(true)}
               className={`px-5 py-2.5 ${colorClasses.bg} ${colorClasses.hoverBg} text-white rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all self-start sm:self-auto shadow-sm active:scale-95`}
             >
               Start Free Sandbox
@@ -1364,7 +1365,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
               </div>
 
               <button 
-                onClick={() => onLaunchApp(true)}
+                onClick={() => setIsRoleModalOpen(true)}
                 className={`w-full ${colorClasses.bg} ${colorClasses.hoverBg} text-white text-xs sm:text-sm font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm`}
                 id="saas_calculator_cta"
               >
@@ -1490,6 +1491,96 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
           </div>
         </div>
       </footer>
+
+      {/* 🟢 DYNAMIC ROLE SELECTION MODAL */}
+      {isRoleModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200/80 shadow-2xl overflow-hidden relative" id="role_selection_modal">
+            {/* Top Close Button */}
+            <button
+              onClick={() => setIsRoleModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 rounded-full transition-colors cursor-pointer"
+              title="Close Panel"
+            >
+              <X className="w-4 h-4 cursor-pointer" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="p-8 pb-5 border-b border-rose-100/50 text-center space-y-2 bg-gradient-to-b from-slate-50 to-white">
+              <div className="inline-flex py-1 px-3 bg-emerald-50 text-emerald-700 text-[10px] font-mono font-bold uppercase rounded-full">
+                SELECT OPERATIONAL CONTEXT
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+                How would you like to enter MediFlow?
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                Choose a pre-configured sandbox session profile. Instantly provision and access either the Hospital Care Module or SaaS Administration Panel.
+              </p>
+            </div>
+
+            {/* Role Cards Double Grid */}
+            <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-6 bg-white">
+              {/* Card 1: Hospital Admin */}
+              <div className="group border border-slate-200/80 hover:border-emerald-500/30 rounded-2xl p-6 bg-slate-50/50 hover:bg-emerald-50/10 transition-all hover:shadow-lg flex flex-col justify-between text-left space-y-4">
+                <div className="space-y-3">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <Stethoscope className="w-6 h-6 stroke-[2]" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 group-hover:text-emerald-750 transition-colors">Hospital Administrator</h4>
+                    <span className="text-[10px] font-mono font-bold text-slate-400 block mt-0.5">ROLE: hospital_admin</span>
+                  </div>
+                  <p className="text-xs text-slate-550 text-slate-505 text-slate-500 leading-relaxed">
+                    Access standard outpatient (OPD) logs, inpatient (IPD) ward charts, pharmacy medicine depots, laboratory path screens, and clinic billings.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsRoleModalOpen(false);
+                    onLaunchApp("Hospital Admin");
+                  }}
+                  className={`w-full py-3 px-4 ${colorClasses.bg} ${colorClasses.hoverBg} text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm mt-2`}
+                >
+                  <span>Enter Hospital Admin</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-white" />
+                </button>
+              </div>
+
+              {/* Card 2: Super Admin */}
+              <div className="group border border-slate-200/80 hover:border-indigo-500/30 rounded-2xl p-6 bg-slate-50/50 hover:bg-indigo-50/10 transition-all hover:shadow-lg flex flex-col justify-between text-left space-y-4">
+                <div className="space-y-3">
+                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                    <ShieldCheck className="w-6 h-6 stroke-[2]" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 group-hover:text-indigo-750 transition-colors">Super Admin</h4>
+                    <span className="text-[10px] font-mono font-bold text-indigo-400 block mt-0.5">ROLE: super_admin</span>
+                  </div>
+                  <p className="text-xs text-slate-550 text-slate-505 text-slate-500 leading-relaxed">
+                    Comprehensive platform access. Manage active SaaS subscriptions, modify global CMS elements, review active trial registries, and test all Hospital modules.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsRoleModalOpen(false);
+                    onLaunchApp("Super Admin");
+                  }}
+                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm mt-2"
+                >
+                  <span>Enter Super Admin</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer Banner */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100/80 text-center text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>Symmetric secure session token generated inside local environment memory</span>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
