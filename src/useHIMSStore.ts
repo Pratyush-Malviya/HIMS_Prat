@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole, LandingPageConfig, PainPointSlide, FeatureModule } from "./types";
+import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole, LandingPageConfig, PainPointSlide, FeatureModule, HospitalProfile } from "./types";
 import { db } from "./firebase";
 import { collection, getDocs, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 
@@ -19,12 +19,88 @@ import {
 const STORAGE_KEY = "hims_database_state_v1";
 
 const initialEmployees: Employee[] = [
-  { id: "emp-1", name: "Dr. Rajesh Kumar", role: "Physician", department: "OPD Department", permittedModules: ["dashboard", "opd", "ipd"] },
-  { id: "emp-2", name: "Nurse Priya Singh", role: "Nurse", department: "Nursing Station", permittedModules: ["dashboard", "ipd"] },
-  { id: "emp-3", name: "Admin Amit Joshi", role: "Admin", department: "Finance Office", permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"] },
-  { id: "emp-4", name: "Deepak Verma", role: "Lab Head", department: "Laboratory", permittedModules: ["dashboard", "labs"] },
-  { id: "emp-5", name: "Pharmacy Desk Boss", role: "Pharmacy Boss", department: "Pharmacy Ward", permittedModules: ["dashboard", "pharmacy"] }
+  {
+    id: "emp-1",
+    name: "Dr. Rajesh Kumar",
+    email: "rajesh.kumar@mediflow.com",
+    phone: "+91 91234 56780",
+    role: "Physician",
+    department: "OPD Department",
+    joiningDate: "2024-03-15",
+    salary: 125000,
+    shiftPattern: "Morning (08:00 - 16:00)",
+    attendanceStatus: "On-Duty",
+    commissionPct: 15,
+    permittedModules: ["dashboard", "opd", "ipd", "labs"]
+  },
+  {
+    id: "emp-2",
+    name: "Nurse Priya Singh",
+    email: "priya.singh@mediflow.com",
+    phone: "+91 98765 12345",
+    role: "Nurse",
+    department: "Nursing Station",
+    joiningDate: "2024-08-22",
+    salary: 45000,
+    shiftPattern: "Evening (16:00 - 24:00)",
+    attendanceStatus: "On-Duty",
+    commissionPct: 0,
+    permittedModules: ["dashboard", "ipd"]
+  },
+  {
+    id: "emp-3",
+    name: "Admin Amit Joshi",
+    email: "amit.joshi@mediflow.com",
+    phone: "+91 99887 76655",
+    role: "Admin",
+    department: "Finance Office",
+    joiningDate: "2023-01-10",
+    salary: 85000,
+    shiftPattern: "Morning (08:00 - 16:00)",
+    attendanceStatus: "On-Duty",
+    commissionPct: 0,
+    permittedModules: ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "hr"]
+  },
+  {
+    id: "emp-4",
+    name: "Deepak Verma",
+    email: "deepak.verma@mediflow.com",
+    phone: "+91 98123 45678",
+    role: "Lab Head",
+    department: "Laboratory",
+    joiningDate: "2024-05-12",
+    salary: 62000,
+    shiftPattern: "Night (24:00 - 08:00)",
+    attendanceStatus: "Off-Duty",
+    commissionPct: 5,
+    permittedModules: ["dashboard", "labs"]
+  },
+  {
+    id: "emp-5",
+    name: "Pharmacy Desk Boss",
+    email: "pharmacy.boss@mediflow.com",
+    phone: "+91 95432 10987",
+    role: "Pharmacy Boss",
+    department: "Pharmacy Ward",
+    joiningDate: "2024-02-01",
+    salary: 58000,
+    shiftPattern: "Morning (08:00 - 16:00)",
+    attendanceStatus: "On-Duty",
+    commissionPct: 2,
+    permittedModules: ["dashboard", "pharmacy"]
+  }
 ];
+
+const initialHospitalProfile: HospitalProfile = {
+  name: "MediFlow City General Hospital",
+  tagline: "Secured Closed-Loop Inpatient Healthcare Services",
+  phone: "+91 98765 43210",
+  email: "admin@mediflow-hospital.com",
+  address: "704, Wellness Boulevard, Sector 15, HIMS Square, Mumbai, 400051",
+  logoUrl: "", 
+  taxNumber: "GSTIN-27AAHCM1029C1Z5",
+  accreditation: "NABH Accredited (National Accreditation Board for Hospitals)"
+};
 
 const initialCustomRoles: CustomRole[] = [
   { id: "role-1", name: "Consulting Specialist", defaultDepartment: "OPD Department", defaultPermittedModules: ["dashboard", "opd", "labs"] },
@@ -204,6 +280,7 @@ export function useHIMSStore() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [landingPageConfig, setLandingPageConfig] = useState<LandingPageConfig>(defaultLandingPageConfig);
+  const [hospitalProfile, setHospitalProfile] = useState<HospitalProfile>(initialHospitalProfile);
   const [loading, setLoading] = useState(true);
 
   // Initialize and load state
@@ -226,6 +303,7 @@ export function useHIMSStore() {
         setEmployees(parsed.employees || initialEmployees);
         setCustomRoles(parsed.customRoles || initialCustomRoles);
         setLandingPageConfig(parsed.landingPageConfig || defaultLandingPageConfig);
+        setHospitalProfile(parsed.hospitalProfile || initialHospitalProfile);
       } else {
         // Load defaults
         setPatients(initialPatients);
@@ -242,6 +320,7 @@ export function useHIMSStore() {
         setEmployees(initialEmployees);
         setCustomRoles(initialCustomRoles);
         setLandingPageConfig(defaultLandingPageConfig);
+        setHospitalProfile(initialHospitalProfile);
  
         localStorage.setItem(
           STORAGE_KEY,
@@ -259,7 +338,8 @@ export function useHIMSStore() {
             notifications: [],
             employees: initialEmployees,
             customRoles: initialCustomRoles,
-            landingPageConfig: defaultLandingPageConfig
+            landingPageConfig: defaultLandingPageConfig,
+            hospitalProfile: initialHospitalProfile
           })
         );
       }
@@ -286,6 +366,7 @@ export function useHIMSStore() {
     employees?: Employee[];
     customRoles?: CustomRole[];
     landingPageConfig?: LandingPageConfig;
+    hospitalProfile?: HospitalProfile;
   }) => {
     const currentState = {
       patients: updated.patients ?? patients,
@@ -301,7 +382,8 @@ export function useHIMSStore() {
       notifications: updated.notifications ?? notifications,
       employees: updated.employees ?? employees,
       customRoles: updated.customRoles ?? customRoles,
-      landingPageConfig: updated.landingPageConfig ?? landingPageConfig
+      landingPageConfig: updated.landingPageConfig ?? landingPageConfig,
+      hospitalProfile: updated.hospitalProfile ?? hospitalProfile
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
@@ -320,6 +402,12 @@ export function useHIMSStore() {
     if (updated.employees) setEmployees(updated.employees);
     if (updated.customRoles) setCustomRoles(updated.customRoles);
     if (updated.landingPageConfig) setLandingPageConfig(updated.landingPageConfig);
+    if (updated.hospitalProfile) setHospitalProfile(updated.hospitalProfile);
+  };
+
+  const updateHospitalProfile = (profileUpdates: Partial<HospitalProfile>) => {
+    const nextProfile = { ...hospitalProfile, ...profileUpdates };
+    saveState({ hospitalProfile: nextProfile });
   };
 
   const updateLandingPageConfig = (configUpdates: Partial<LandingPageConfig>) => {
@@ -935,7 +1023,9 @@ export function useHIMSStore() {
     removeCustomRole,
     syncFirestoreData,
     landingPageConfig,
-    updateLandingPageConfig
+    updateLandingPageConfig,
+    hospitalProfile,
+    updateHospitalProfile
   };
 }
 export type HIMSStore = ReturnType<typeof useHIMSStore>;

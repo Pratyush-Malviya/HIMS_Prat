@@ -144,9 +144,16 @@ export interface NotificationAlert {
 export interface Employee {
   id: string;
   name: string;
+  email: string;
+  phone: string;
   role: string; // e.g. "Physician" | "Nurse" | "Admin" | "Lab Head" | "Pharmacy Boss" or Custom Roles
   department: string;
-  permittedModules: string[]; // e.g. ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin"]
+  joiningDate: string;
+  salary: number;
+  shiftPattern: "Morning (08:00 - 16:00)" | "Evening (16:00 - 24:00)" | "Night (24:00 - 08:00)";
+  attendanceStatus: "On-Duty" | "Off-Duty" | "On-Leave";
+  commissionPct?: number;
+  permittedModules: string[]; // e.g. ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "hr"]
 }
 
 export interface CustomRole {
@@ -154,6 +161,17 @@ export interface CustomRole {
   name: string;
   defaultDepartment: string;
   defaultPermittedModules: string[];
+}
+
+export interface HospitalProfile {
+  name: string;
+  tagline: string;
+  phone: string;
+  email: string;
+  address: string;
+  logoUrl: string; // Base64 image data or custom path
+  taxNumber?: string;
+  accreditation?: string;
 }
 
 export interface PainPointSlide {
@@ -212,6 +230,8 @@ export interface HIMSStore {
   employees: Employee[];
   customRoles: CustomRole[];
   landingPageConfig: LandingPageConfig;
+  hospitalProfile: HospitalProfile;
+  updateHospitalProfile: (profile: Partial<HospitalProfile>) => void;
   markNotificationAsRead: (id: string) => void;
   clearNotifications: () => void;
   onboardEmployee: (emp: Employee) => void;

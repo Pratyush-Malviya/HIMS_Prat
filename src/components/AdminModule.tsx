@@ -3,6 +3,7 @@ import {
   ShieldAlert,
   RefreshCw,
   Key,
+  Cloud,
   UserCheck,
   ListFilter,
   Play,
@@ -27,7 +28,14 @@ import {
   FileText,
   Check,
   Edit2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CreditCard,
+  AlertTriangle,
+  Calendar,
+  Loader2,
+  Receipt,
+  X,
+  Building2
 } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
 import { getSecondaryAuth, db, handleFirestoreError, OperationType } from "../firebase";
@@ -44,6 +52,8 @@ interface AdminModuleProps {
   adminUid?: string;
   adminCreatedAt?: string;
   adminIsPaid?: boolean;
+  adminPaymentPlan?: string;
+  onSubscriptionChange?: (isPaid: boolean, planName: string) => void;
 }
 
 export function AdminModule({
@@ -54,8 +64,25 @@ export function AdminModule({
   setActiveSubTab,
   adminUid = "",
   adminCreatedAt = "",
-  adminIsPaid = false
+  adminIsPaid = false,
+  adminPaymentPlan = "Free Trial (14-Days)",
+  onSubscriptionChange
 }: AdminModuleProps) {
+  const getTrialDetails = () => {
+    if (adminIsPaid) {
+      return { elapsedDays: 0, daysRemaining: 14, isTrialExpired: false };
+    }
+    const createdDate = new Date(adminCreatedAt || new Date());
+    const currentDate = new Date();
+    const diffTime = currentDate.getTime() - createdDate.getTime();
+    const elapsedDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const daysRemaining = Math.max(0, 14 - elapsedDays);
+    const isTrialExpired = elapsedDays >= 14;
+    return { elapsedDays, daysRemaining, isTrialExpired };
+  };
+
+  const { elapsedDays, daysRemaining, isTrialExpired } = getTrialDetails();
+
   const {
     auditLogs,
     purgeResetDB,
@@ -70,8 +97,35 @@ export function AdminModule({
     removeEmployee,
     customRoles,
     addCustomRole,
-    removeCustomRole
+    removeCustomRole,
+    syncFirestoreData,
+    hospitalProfile,
+    updateHospitalProfile
   } = store;
+
+  // Dynamic temporary states for Hospital Profile Editing
+  const [profileName, setProfileName] = useState(hospitalProfile?.name || "");
+  const [profileTagline, setProfileTagline] = useState(hospitalProfile?.tagline || "");
+  const [profilePhone, setProfilePhone] = useState(hospitalProfile?.phone || "");
+  const [profileEmail, setProfileEmail] = useState(hospitalProfile?.email || "");
+  const [profileAddress, setProfileAddress] = useState(hospitalProfile?.address || "");
+  const [profileLogoUrl, setProfileLogoUrl] = useState(hospitalProfile?.logoUrl || "");
+  const [profileTax, setProfileTax] = useState(hospitalProfile?.taxNumber || "");
+  const [profileAccreditation, setProfileAccreditation] = useState(hospitalProfile?.accreditation || "");
+  const [profileAlert, setProfileAlert] = useState("");
+
+  useEffect(() => {
+    if (hospitalProfile) {
+      setProfileName(hospitalProfile.name || "");
+      setProfileTagline(hospitalProfile.tagline || "");
+      setProfilePhone(hospitalProfile.phone || "");
+      setProfileEmail(hospitalProfile.email || "");
+      setProfileAddress(hospitalProfile.address || "");
+      setProfileLogoUrl(hospitalProfile.logoUrl || "");
+      setProfileTax(hospitalProfile.taxNumber || "");
+      setProfileAccreditation(hospitalProfile.accreditation || "");
+    }
+  }, [hospitalProfile]);
 
   // Dynamic temporary states for Landing Page CMS Edit
   const { landingPageConfig, updateLandingPageConfig } = store;
@@ -106,6 +160,23 @@ export function AdminModule({
   // Collapsible panels indicator flags
   const [showAddSlidePanel, setShowAddSlidePanel] = useState(false);
   const [showAddFeaturePanel, setShowAddFeaturePanel] = useState(false);
+
+  // States for interactive billing tab
+  const [billingPlan, setBillingPlan] = useState<string>("Core");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
+  const [billingBeds, setBillingBeds] = useState<number>(150);
+  const [billingClinicians, setBillingClinicians] = useState<number>(35);
+  const [billingGemini, setBillingGemini] = useState<boolean>(true);
+  const [billingFHIR, setBillingFHIR] = useState<boolean>(false);
+  const [checkoutCard, setCheckoutCard] = useState<string>("4242 4242 4242 4242");
+  const [checkoutExpiry, setCheckoutExpiry] = useState<string>("12/29");
+  const [checkoutCVC, setCheckoutCVC] = useState<string>("899");
+  const [checkoutName, setCheckoutName] = useState<string>("Chief Medical Admin");
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState<boolean>(false);
+  const [isCheckoutProcessing, setIsCheckoutProcessing] = useState<boolean>(false);
+  const [billingStep, setBillingStep] = useState<number>(-1); // -1: standby, 0-3: processing, 4: invoice modal
+  const [selectedInvoiceReceipt, setSelectedInvoiceReceipt] = useState<any>(null);
 
   // Form states for creating/editing slide
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
@@ -149,7 +220,44 @@ export function AdminModule({
   const [customRoleDept, setCustomRoleDept] = useState("OPD Department");
   const [customRolePerms, setCustomRolePerms] = useState<string[]>(["dashboard"]);
 
+  // Cloud Sync & Non-Technical Preferences States
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>("Synced 2 mins ago");
+  const [autoSaveDischarge, setAutoSaveDischarge] = useState(true);
+  const [pharmacyThreshold, setPharmacyThreshold] = useState(10);
+  const [preferredCurrency, setPreferredCurrency] = useState("₹ INR");
+  const [enableSMSNotifications, setEnableSMSNotifications] = useState(true);
+
   const [cmsAlert, setCmsAlert] = useState<string | null>(null);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      if (syncFirestoreData) {
+        await syncFirestoreData();
+      }
+      
+      const userRole = localStorage.getItem("hims_current_user_role") || "Executive Admin";
+      const userName = localStorage.getItem("hims_current_user_name") || "Administrator";
+      if (createLog) {
+        createLog(
+          userName, 
+          userRole, 
+          "Forced Database Sync", 
+          "Cloud Storage Sync", 
+          "Manually triggered cloud dataset sync of patients, beds, pharmacy stock, and access staff directory."
+        );
+      }
+      
+      const now = new Date();
+      setLastSyncedTime(`Synced at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`);
+      setCmsAlert("Success! Local database synchronized with Cloud Firestore database.");
+    } catch (e) {
+      console.warn("Manual data sync error: ", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSaveBrand = () => {
     updateLandingPageConfig({
@@ -441,8 +549,13 @@ export function AdminModule({
         id: uid, // Use actual uid as Id so they can retrieve it on login!
         name: newEmpName.trim(),
         email: newEmpEmail.trim(),
+        phone: "+91 99999 88888",
         role: newEmpRole,
         department: newEmpDept,
+        joiningDate: new Date().toISOString().split("T")[0],
+        salary: 80000,
+        shiftPattern: "Morning (08:00 - 16:00)" as const,
+        attendanceStatus: "On-Duty" as const,
         permittedModules: newEmpPerms,
         adminId: adminUid,
         parentAdminCreatedAt: adminCreatedAt || new Date().toISOString(),
@@ -553,12 +666,14 @@ export function AdminModule({
       <div className="bg-white border border-slate-100 rounded-xl p-3 flex flex-wrap gap-1 shadow-sm items-center justify-between">
         <div className="flex flex-wrap gap-1">
           {[
-            { id: "directory", label: "Staff & Onboarding", icon: Users, desc: "Personnel records & RBAC keys" },
-            { id: "roles", label: "Custom Role Architect", icon: UserCog, desc: "Modular privileges planner" },
-            { id: "logs", label: "Security Audit Trails", icon: ShieldCheck, desc: "Chronological HIPAA log ledger" },
-            { id: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "EHR Collections telemetry & gauges" },
-            { id: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage SaaS styles, texts & images" }
-          ].map((tab) => {
+            { id: "profile", label: "Branding & Profile", icon: Building2, desc: "Configure hospital name, logo and letterheads" },
+            { id: "directory", label: "Staff Directory", icon: Users, desc: "Personnel records & screen accesses" },
+            { id: "roles", label: "Access & Roles", icon: UserCog, desc: "Manage permissions and roles" },
+            { id: "logs", label: "Activity History", icon: ShieldCheck, desc: "Log history of actions" },
+            { id: "diagnostics", label: "Settings & Cloud Sync", icon: Cpu, desc: "Cloud backup, manual sync & preferences" },
+            { id: "billing", label: "SaaS Plan & Invoices", icon: CreditCard, desc: "Manage hospital subscription plans & trials" },
+            { id: "landing", label: "Landing Page website CMS", icon: Sparkles, desc: "Manage marketing website style and text" }
+          ].filter((tab) => tab.id !== "landing" || currentUser?.role === "Super Admin").map((tab) => {
             const isSelected = activeSubTab === tab.id;
             const TabIcon = tab.icon;
             return (
@@ -1205,178 +1320,1153 @@ export function AdminModule({
       {activeSubTab === "diagnostics" && (
         <div className="space-y-6 animate-fadeIn">
           
-          {/* Graphical Interface: Diagnostic Gauges & Telemetry Round Metrics! */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* Metric 1 */}
-            <div className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2">
-              <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">Container DB Latency</span>
-              
-              {/* Custom SVG ring gauge */}
-              <div className="relative flex items-center justify-center">
-                <svg className="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4.5" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="#10b981" strokeWidth="5" fill="transparent" strokeDasharray={176} strokeDashoffset={25} />
-                </svg>
-                <span className="absolute text-xs font-bold font-mono text-slate-850">12ms</span>
+          {/* Cloud Sync & Manual Sync Section */}
+          <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+              <div className="space-y-1.5 flex-1 w-full md:w-auto">
+                <div className="inline-flex items-center gap-1.5 py-1 px-3 bg-emerald-50 text-emerald-700 text-[11px] font-bold uppercase rounded-full">
+                  <Cloud className="w-3.5 h-3.5 text-emerald-600" /> Cloud Sync Active
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 font-sans">Hospital Cloud Data Sync</h3>
+                <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                  Your hospital files are safely backed up in the secure cloud database automatically. If other doctors or staff made edits elsewhere, you can trigger a manual sync to merge all directories instantly.
+                </p>
               </div>
-              <span className="text-[9.5px] text-emerald-600 font-semibold uppercase leading-none">Optimal speed</span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="text-left sm:text-right space-y-0.5">
+                  <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 justify-start sm:justify-end">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Connected & Synced</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-mono">{lastSyncedTime}</p>
+                </div>
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className={`py-3.5 px-6 font-bold text-xs rounded-xl flex items-center justify-center gap-2.5 shadow-sm transition-all cursor-pointer active:scale-95 ${
+                    isSyncing
+                      ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-md"
+                  }`}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin text-slate-400" : "text-white"}`} />
+                  <span>{isSyncing ? "Syncing..." : "Sync Now"}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Metric 2 */}
-            <div className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2">
-              <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">CPU Threads Buffer</span>
-              
-              <div className="relative flex items-center justify-center">
-                <svg className="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4.5" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="#6366f1" strokeWidth="5" fill="transparent" strokeDasharray={176} strokeDashoffset={145} />
-                </svg>
-                <span className="absolute text-xs font-bold font-mono text-slate-850">18.5%</span>
+            {/* General Preferences Panel */}
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 font-sans">Hospital Preference Settings</h4>
+                <p className="text-xs text-slate-400">Configure parameters for automated workflows below.</p>
               </div>
-              <span className="text-[9.5px] text-indigo-600 font-semibold uppercase leading-none">Cooling: Standard</span>
-            </div>
 
-            {/* Metric 3 */}
-            <div className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2">
-              <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">Secure OAuth Tokens</span>
-              
-              <div className="relative flex items-center justify-center">
-                <svg className="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4.5" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="#f59e0b" strokeWidth="5" fill="transparent" strokeDasharray={176} strokeDashoffset={120} />
-                </svg>
-                <span className="absolute text-xs font-bold font-mono text-slate-850">5 Live</span>
-              </div>
-              <span className="text-[9.5px] text-amber-600 font-semibold uppercase leading-none">Cert: SHA-256 SSL</span>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                {/* Preference 1 */}
+                <div className="flex items-start gap-3.5">
+                  <input
+                    type="checkbox"
+                    id="pref_autosave"
+                    checked={autoSaveDischarge}
+                    onChange={(e) => setAutoSaveDischarge(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 mt-0.5 cursor-pointer accent-emerald-600"
+                  />
+                  <label htmlFor="pref_autosave" className="space-y-1 block cursor-pointer">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800">Auto-Save Drafts on Patient Discharge</span>
+                    <p className="text-[11px] text-slate-450 text-slate-500 leading-relaxed">
+                      Saves billing history automatically into archives when any patient ward bed allocation is freed.
+                    </p>
+                  </label>
+                </div>
 
-            {/* Metric 4 */}
-            <div className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2">
-              <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">FHIR Compliance Level</span>
-              
-              <div className="relative flex items-center justify-center">
-                <svg className="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4.5" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="#ec4899" strokeWidth="5" fill="transparent" strokeDasharray={176} strokeDashoffset={0} />
-                </svg>
-                <span className="absolute text-xs font-bold font-mono text-pink-600">FHIR R4</span>
-              </div>
-              <span className="text-[9.5px] text-pink-500 font-semibold uppercase leading-none">Interoperable</span>
-            </div>
-          </div>
+                {/* Preference 2 */}
+                <div className="flex items-start gap-3.5">
+                  <input
+                    type="checkbox"
+                    id="pref_sms"
+                    checked={enableSMSNotifications}
+                    onChange={(e) => setEnableSMSNotifications(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 mt-0.5 cursor-pointer accent-emerald-600"
+                  />
+                  <label htmlFor="pref_sms" className="space-y-1 block cursor-pointer">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800">Enable Low Stock Security SMS Alerts</span>
+                    <p className="text-[11px] text-slate-450 text-slate-500 leading-relaxed">
+                      Sends an alert notice directly to supervisors when medicine inventory falls beneath safety stock levels.
+                    </p>
+                  </label>
+                </div>
 
-          {/* Super Admin Panel card overview */}
-          <div className="bg-slate-900 text-white rounded-xl p-6 relative overflow-hidden shadow-md border border-slate-850">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-505/10 rounded-full blur-3xl pointer-events-none"></div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <Server className="w-5 h-5 text-indigo-400 animate-pulse" />
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-300 font-mono">Simulated Database Engine</h3>
-                  <span className="text-sm font-semibold">Active Firestore Collections Telemetry</span>
+                {/* Preference 3 */}
+                <div className="space-y-1.5 flex flex-col justify-start">
+                  <label className="text-xs sm:text-sm font-bold text-slate-800 block">Low Pharmacy Stock Warning Threshold</label>
+                  <p className="text-[11px] text-slate-500 max-w-sm">Mark pharmacy drugs in red logs when storage stock levels fall below this count.</p>
+                  <select
+                    value={pharmacyThreshold}
+                    onChange={(e) => setPharmacyThreshold(Number(e.target.value))}
+                    className="w-full max-w-xs text-xs py-2 px-3 border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-750"
+                  >
+                    <option value="5">5 items minimum warning limit</option>
+                    <option value="10">10 items minimum warning limit (Recommended)</option>
+                    <option value="20">20 items minimum warning limit</option>
+                    <option value="50">50 items minimum warning limit</option>
+                  </select>
+                </div>
+
+                {/* Preference 4 */}
+                <div className="space-y-1.5 flex flex-col justify-start">
+                  <label className="text-xs sm:text-sm font-bold text-slate-800 block">Preferred System Currency Symbol</label>
+                  <p className="text-[11px] text-slate-500 max-w-sm">Sets primary currency markers displayed inside invoices, payments, and estimates tabs.</p>
+                  <select
+                    value={preferredCurrency}
+                    onChange={(e) => setPreferredCurrency(e.target.value)}
+                    className="w-full max-w-xs text-xs py-2 px-3 border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-750"
+                  >
+                    <option value="₹ INR">₹ INR (Indian Rupee)</option>
+                    <option value="$ USD">$ USD (United States Dollar)</option>
+                    <option value="€ EUR">€ EUR (Euro Currency)</option>
+                    <option value="£ GBP">£ GBP (British Pound Sterling)</option>
+                  </select>
                 </div>
               </div>
-              <span className="text-[9.5px] bg-slate-950 px-2 py-0.5 rounded border border-indigo-500/30 text-indigo-300 font-mono uppercase font-bold">
-                ROOT_SYS_SECURE
-              </span>
-            </div>
-
-            {/* Simulated Live Database collections sizes */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 text-xs font-mono">
-              <div className="p-3.5 bg-white/5 border border-white/5 rounded-lg">
-                <span className="text-[10px] text-slate-400 block mb-1">UHID PATIENTS</span>
-                <span className="text-lg font-bold text-slate-200">{patients.length} records</span>
-              </div>
-              
-              <div className="p-3.5 bg-white/5 border border-white/5 rounded-lg">
-                <span className="text-[10px] text-slate-400 block mb-1">IPD BED UNITS</span>
-                <span className="text-lg font-bold text-slate-200">{beds.filter(b => b.status === "Occupied").length}/{beds.length} occupied</span>
-              </div>
-              
-              <div className="p-3.5 bg-white/5 border border-white/5 rounded-lg">
-                <span className="text-[10px] text-slate-400 block mb-1">SAFETY MEDS STOCK</span>
-                <span className="text-lg font-bold text-red-300">{medicines.filter((m) => m.stockCount <= m.safetyStock).length} low items</span>
-              </div>
-
-              <div className="p-3.5 bg-white/5 border border-white/5 rounded-lg">
-                <span className="text-[10px] text-slate-400 block mb-1">PENDING EXPENSES</span>
-                <span className="text-lg font-bold text-amber-300">{billing.filter((v) => v.status === "Unpaid").length} invoices</span>
-              </div>
             </div>
           </div>
 
-          {/* Ledger Action Simulator & Restores */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5Col">
-                <Wrench className="w-4 h-4 text-emerald-500" />
-                Dev-Sim Security Sandbox: Attack block & ledger simulations
-              </h3>
-              <p className="text-xs text-slate-400">Model real-world clinical security ledger events and inject them directly into the chronological HIPAA complaints log matrix to test alerting and traceability.</p>
+          {/* Clean Simplified Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-start text-left space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-mono tracking-wider">Registered Patients</span>
+              <span className="text-lg font-extrabold text-slate-900">{patients.length} Active Files</span>
+              <p className="text-[11px] text-slate-500 leading-normal">Registered medical index profiles inside local repository</p>
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
-              <button
-                onClick={() =>
-                  triggerSimulationLog(
-                    "HIPAA Breach Shield Active",
-                    `Security Shield blocked simulated SSH trace attempt on port 8022 from IP 21.139.11.${Math.floor(Math.random() * 254)}`
-                  )
-                }
-                className="bg-indigo-50 border border-indigo-150 text-indigo-700 hover:bg-slate-900 hover:text-white px-4 py-2 rounded-xl font-medium transition-all cursor-pointer"
-              >
-                Inject SSH Port Attack BLOCK Log
-              </button>
+            {/* Card 2 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-start text-left space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-mono tracking-wider">Bed Allocations</span>
+              <span className="text-lg font-extrabold text-slate-900">
+                {beds.filter((b) => b.status === "Occupied").length} / {beds.length} occupied
+              </span>
+              <p className="text-[11px] text-slate-500 leading-normal">Active beds in general wards and special cabins</p>
+            </div>
 
-              <button
-                onClick={() =>
-                  triggerSimulationLog(
-                    "Audit Log Database Backup",
-                    "Simulated automated cronjob completed daily incremental snapshot back up of 6 FHIR relational collections"
-                  )
-                }
-                className="bg-indigo-50 border border-indigo-150 text-indigo-700 hover:bg-slate-900 hover:text-white px-4 py-2 rounded-xl font-medium transition-all cursor-pointer"
-              >
-                Inject Database Snap Backup Log
-              </button>
+            {/* Card 3 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-start text-left space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-mono tracking-wider">Low Stock Meds</span>
+              <span className="text-lg font-extrabold text-red-600 border-none inline-block">
+                {medicines.filter((m: any) => m.stockCount <= pharmacyThreshold).length} drug items
+              </span>
+              <p className="text-[11px] text-slate-500 leading-normal">Medicine stock levels lower than safety warning limit ({pharmacyThreshold})</p>
+            </div>
 
-              <button
-                onClick={() =>
-                  triggerSimulationLog(
-                    "System Factory Reset",
-                    "Super admin initiated simulated factory environment restore to base healthcare fixtures successfully"
-                  )
-                }
-                className="bg-indigo-50 border border-indigo-150 text-indigo-700 hover:bg-slate-900 hover:text-white px-4 py-2 rounded-xl font-medium transition-all cursor-pointer"
-              >
-                Inject Factory Reset Log
-              </button>
+            {/* Card 4 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-start text-left space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-mono tracking-wider">Pending Bills</span>
+              <span className="text-lg font-extrabold text-slate-900">
+                {billing.filter((v: any) => v.status === "Unpaid").length} invoices
+              </span>
+              <p className="text-[11px] text-slate-500 leading-normal">Invoices waiting to be settled by clinical clients</p>
             </div>
           </div>
 
           {/* Database Hard Factory Reset Container */}
-          <div className="bg-white border border-red-100 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="bg-white border border-red-100 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
-              <h4 className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wide flex items-center gap-1.5 text-red-700">
-                <ShieldAlert className="w-4 h-4" /> CLINIC DATABASE FACTORY HARD REFRESH
+              <h4 className="text-sm font-bold text-red-700 flex items-center gap-1.5 font-sans">
+                <ShieldAlert className="w-5 h-5 text-red-600" /> Start Over & Reload Demo Data
               </h4>
-              <p className="text-xs text-slate-400 max-w-xl">Purge all simulated records and restore the initial default set of HIPAA patients, IPD bed allocations, medicine stock, billing ledger, and role configurations.</p>
+              <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                Want to clear your testing patients, medicines, and logs to start fresh? Reload the initial simple preloaded medical files catalog below.
+              </p>
             </div>
 
             <button
                onClick={handleReset}
-               className="bg-red-50 text-red-700 hover:bg-red-650 hover:text-white py-2 px-4 border border-red-200 rounded-xl text-xs font-semibold shrink-0 text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+               className="bg-red-50 text-red-700 hover:bg-red-700 hover:text-white py-3 px-5 border border-red-200 rounded-xl text-xs font-bold shrink-0 text-center flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
-              <RefreshCw className="w-4 h-4" /> Purge & Restore Collections
+              <RefreshCw className="w-4 h-4 cursor-pointer" /> Wipe and Reload Sample Data
             </button>
           </div>
 
         </div>
       )}
 
-      {activeSubTab === "landing" && (
+      {activeSubTab === "billing" && (
+        <div className="space-y-6 text-slate-800">
+          
+          {/* Header Description */}
+          <div className="bg-slate-900 text-slate-100 rounded-2xl p-6 relative overflow-hidden shadow-md">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="max-w-2xl text-left space-y-2">
+              <span className="text-[9px] font-mono font-bold tracking-widest text-emerald-400 uppercase">Hospital Tenancy Operations</span>
+              <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">MediFlow AI Workspace Subscription & Billing Management</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Configure your organization's subscription parameters, scale your clinicians capacity on-the-fly, fast-foward trials for verification, or checkout securely to unlock persistent multi-user licenses.
+              </p>
+            </div>
+          </div>
+
+          {/* Core Configuration States Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            
+            {/* Status overview list (7 cols) */}
+            <div className="lg:col-span-7 space-y-6 text-left">
+              
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Active Workspace Plan Overview</h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase border ${
+                    adminIsPaid 
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                      : "bg-amber-50 text-amber-700 border-amber-200 animate-pulse"
+                  }`}>
+                    {adminIsPaid ? "🏆 Premium Subscription Active" : "⚡ 14-Day Free Trial Standby"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  
+                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
+                    <span className="text-[10px] text-slate-450 uppercase font-mono tracking-wider">Subscription Tier:</span>
+                    <strong className="text-slate-900 block text-xs">{adminPaymentPlan || (adminIsPaid ? "Enterprise EHR" : "Free Trial Sandbox")}</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
+                    <span className="text-[10px] text-slate-450 uppercase font-mono tracking-wider">Workspace Tenants:</span>
+                    <strong className="text-slate-900 block text-xs">Isolated Database Node</strong>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
+                    <span className="text-[10px] text-slate-450 uppercase font-mono tracking-wider">Remaining Cycle:</span>
+                    <strong className="text-slate-900 block text-xs">
+                      {adminIsPaid ? "Renews in 28 Days" : `${daysRemaining} Days remaining`}
+                    </strong>
+                  </div>
+
+                </div>
+
+                {/* Simulated 14-days Free Trial Slider Progress */}
+                {!adminIsPaid && (
+                  <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between text-xs text-amber-800 font-bold">
+                      <span className="flex items-center gap-1.5 font-mono uppercase tracking-wide text-[10px]">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        Trial Progression Matrix: Day {elapsedDays + 1} of 14
+                      </span>
+                      <span>({daysRemaining} days left)</span>
+                    </div>
+                    {/* Visual Progress Bar */}
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, ((14 - daysRemaining) / 14) * 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex gap-2 justify-between items-center text-[11px] leading-relaxed text-slate-500 pt-1.5">
+                      <span>Fast-forwarding shifting dates into physical lockouts facilitates testing payment flows easily.</span>
+                      
+                      <button
+                        onClick={async () => {
+                          const conf = window.confirm("Shift HIMS registration timestamp back 15 days ago? This triggers auto redirection blockages.");
+                          if (!conf) return;
+                          
+                          // Shift database timestamp back to test payment locking
+                          const fifteenDaysAgo = new Date();
+                          fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+                          const fifteenDaysAgoISO = fifteenDaysAgo.toISOString();
+                          
+                          try {
+                            await setDoc(doc(db, "admins", adminUid), {
+                              uid: adminUid,
+                              email: currentUser.role === "Super Admin" ? "malviya.pratyush26@gmail.com" : "hospital-admin@mediflow.com",
+                              name: currentUser.name,
+                              role: "Hospital Admin",
+                              createdAt: fifteenDaysAgoISO,
+                              isPaid: false,
+                              paymentPlan: "Free Trial (14-Days)"
+                            });
+                          } catch (err) {
+                            console.warn("DB timestamp shifting error (handled):", err);
+                          }
+
+                          if (onSubscriptionChange) {
+                            onSubscriptionChange(false, "Free Trial (14-Days)");
+                          }
+                          alert("Database adjusted: Systems adjusted to 15 days ago. Workspace locked on sandbox checkout terminal.");
+                        }}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-[9px] font-bold px-3 py-1.5 rounded hover:shadow transition-all uppercase whitespace-nowrap"
+                        title="Shifts creation timestamp 15 days into past to test payment blocking redirections."
+                      >
+                        ⏩ Force Expire Trial
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancel or Change active subscription simulation if paid */}
+                {adminIsPaid && (
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/15 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold font-mono uppercase tracking-wide text-[10px]">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Paid Subscription Active
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      You have full system access permissions active today! You can scale your clinical capacity elements instantly, or click the button below to simulate standard subscription cancellation and test unpaid redirects.
+                    </p>
+                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-100 mt-2">
+                      <button
+                        onClick={async () => {
+                          const conf = window.confirm("Are you sure you want to cancel the premium subscription simulation? This revokes paid status.");
+                          if (!conf) return;
+                          try {
+                            await setDoc(doc(db, "admins", adminUid), {
+                              uid: adminUid,
+                              role: "Hospital Admin",
+                              createdAt: adminCreatedAt || new Date().toISOString(),
+                              isPaid: false,
+                              paymentPlan: "Free Trial (14-Days)"
+                            });
+                            if (onSubscriptionChange) {
+                              onSubscriptionChange(false, "Free Trial (14-Days)");
+                            }
+                            alert("Subscription cancelled. Workspace downgraded back to free trial.");
+                          } catch (err) {
+                            console.warn("Subscription downgrade error (handled):", err);
+                          }
+                        }}
+                        className="bg-red-50 hover:bg-red-100 text-red-700 font-mono text-[9px] font-black px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors uppercase cursor-pointer"
+                      >
+                        ✗ Downgrade Subscription (Cancel)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 2: Interactive Parameter Sliders for live checkout calculations */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">In-App Live Subscription Quoting Tool</h4>
+                  <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded leading-none uppercase">Parameters Slider</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
+                  {/* Bed counts */}
+                  <div className="space-y-2 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold uppercase text-[9px]">A: Ward Occupancy Slots</span>
+                      <span className="font-mono text-emerald-600 font-bold px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">
+                        {billingBeds} Beds Volume
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="10" 
+                      max="1000" 
+                      step="5"
+                      value={billingBeds}
+                      onChange={(e) => setBillingBeds(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" 
+                    />
+                    <div className="flex justify-between text-[8px] text-slate-450 font-mono uppercase">
+                      <span>10 beds</span>
+                      <span>500 beds</span>
+                      <span>1,000 beds max</span>
+                    </div>
+                  </div>
+
+                  {/* Clinicians staff seats */}
+                  <div className="space-y-2 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold uppercase text-[9px]">B: Registered Clinician Seals</span>
+                      <span className="font-mono text-emerald-600 font-bold px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">
+                        {billingClinicians} Staff Seals
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="5" 
+                      max="300" 
+                      step="5"
+                      value={billingClinicians}
+                      onChange={(e) => setBillingClinicians(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" 
+                    />
+                    <div className="flex justify-between text-[8px] text-slate-450 font-mono uppercase">
+                      <span>5 spots</span>
+                      <span>150 spots</span>
+                      <span>300 spots max</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  
+                  <div 
+                    onClick={() => setBillingGemini(!billingGemini)}
+                    className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-colors text-xs ${
+                      billingGemini 
+                        ? "bg-emerald-50/20 border-emerald-500/30" 
+                        : "bg-slate-50/30 border-slate-150 hover:border-slate-200"
+                    }`}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={billingGemini}
+                      onChange={() => {}}
+                      className="rounded text-emerald-600 mt-1 shrink-0 accent-emerald-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-700 block">Deploy Google Gemini SBAR Diagnostics</span>
+                      <p className="text-[10px] text-slate-550 leading-relaxed mt-0.5">SOAP notes Summarization, vitals warning alerts (+ $150.00/mo)</p>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setBillingFHIR(!billingFHIR)}
+                    className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-colors text-xs ${
+                      billingFHIR 
+                        ? "bg-emerald-50/20 border-emerald-500/30" 
+                        : "bg-slate-50/30 border-slate-150 hover:border-slate-200"
+                    }`}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={billingFHIR}
+                      onChange={() => {}}
+                      className="rounded text-emerald-600 mt-1 shrink-0 accent-emerald-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-700 block">Deploy HL7 and FHIR gateway pipeline</span>
+                      <p className="text-[10px] text-slate-550 leading-relaxed mt-0.5">Secure external Pathology LIMS and PACS routing (+ $99.00/mo)</p>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Historic Invoices Ledger container */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3.5">
+                <div className="flex justify-between items-center pb-2.5">
+                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">HIMS SaaS Invoices Registry</h4>
+                  <span className="text-[10px] font-mono font-bold text-emerald-600">Settle check: Consolidated</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-sans">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 text-[10px] font-mono uppercase">
+                        <th className="p-2.5">Invoice ID</th>
+                        <th className="p-2.5">Billing Date</th>
+                        <th className="p-2.5">Provisioned Configuration</th>
+                        <th className="p-2.5 text-right">Sum paid</th>
+                        <th className="p-2.5 text-center">Receipts</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-650">
+                      
+                      {/* Row 1 */}
+                      <tr className="hover:bg-slate-50/60 transition-colors">
+                        <td className="p-2.5 font-mono text-[11px] font-extrabold text-slate-800">INV-2026-SAAS-9621</td>
+                        <td className="p-2.5">{new Date().toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"})}</td>
+                        <td className="p-2.5 p-2 truncate max-w-[170px]">{adminPaymentPlan || "Multi-Ward EHR Core"} Deployment</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-950">${adminIsPaid ? "699.00" : "0.00 (Trial)"}</td>
+                        <td className="p-2.5 text-center">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setSelectedInvoiceReceipt({
+                                id: "INV-2026-SAAS-9621",
+                                date: new Date().toLocaleDateString(),
+                                plan: adminPaymentPlan || "Multi-Ward EHR Core",
+                                amount: adminIsPaid ? 699.00 : 0.00,
+                                isTrial: !adminIsPaid,
+                                name: currentUser.name,
+                                email: currentUser.role === "Super Admin" ? "malviya.pratyush26@gmail.com" : "hospital-admin@mediflow.com"
+                              });
+                            }}
+                            className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-slate-100 rounded cursor-pointer transition-colors"
+                            title="Print / View Receipt"
+                          >
+                            <FileText className="w-4 h-4 mx-auto" />
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Row 2 */}
+                      <tr className="hover:bg-slate-50/60 transition-colors text-slate-450">
+                        <td className="p-2.5 font-mono text-[11px]">INV-2026-SAAS-4011</td>
+                        <td className="p-2.5">
+                          {(() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - 30);
+                            return d.toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"});
+                          })()}
+                        </td>
+                        <td className="p-2.5 truncate max-w-[170px]">HIMS Trial Registration Land</td>
+                        <td className="p-2.5 text-right font-mono">$0.00</td>
+                        <td className="p-2.5 text-center">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setSelectedInvoiceReceipt({
+                                id: "INV-2026-SAAS-4011",
+                                date: (() => {
+                                  const d = new Date();
+                                  d.setDate(d.getDate() - 30);
+                                  return d.toLocaleDateString();
+                                })(),
+                                plan: "14-Day Free Trial Standby",
+                                amount: 0.00,
+                                isTrial: true,
+                                name: currentUser.name,
+                                email: currentUser.role === "Super Admin" ? "malviya.pratyush26@gmail.com" : "hospital-admin@mediflow.com"
+                              });
+                            }}
+                            className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-slate-100 rounded cursor-pointer transition-colors"
+                            title="Print / View Receipt"
+                          >
+                            <FileText className="w-4 h-4 mx-auto" />
+                          </button>
+                        </td>
+                      </tr>
+
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* SECURE PAYMENT PORTLET MODULE (5 cols) */}
+            <div className="lg:col-span-5 text-left flex flex-col justify-between">
+              
+              <div className="bg-slate-950 text-slate-200 border border-slate-900 rounded-3xl p-5 shadow-lg flex flex-col justify-between h-full space-y-4">
+                
+                <div className="space-y-3">
+                  <div className="pb-2 hover:border-slate-900 border-b border-slate-850 flex items-center justify-between">
+                    <div>
+                      <span className="text-[8px] font-mono tracking-widest font-black text-rose-450 text-emerald-400 block uppercase">Checkout Console</span>
+                      <strong className="text-xs font-bold text-white block">Upgrade Clinical Subscription</strong>
+                    </div>
+                    <Lock className="w-4 h-4 text-slate-500" />
+                  </div>
+
+                  {/* Pricing breakdown summary */}
+                  <div className="p-3 bg-slate-900 border border-slate-850 rounded-xl space-y-2.5 font-mono text-[11px] text-slate-405 text-slate-400">
+                    <div className="flex justify-between">
+                      <span>Standard Base Fee:</span>
+                      <span className="text-white">${billingPlan === "Outpatient" ? "249.00" : billingPlan === "Core" ? "699.00" : "1299.00"}/mo</span>
+                    </div>
+
+                    {billingBeds > 100 && (
+                      <div className="flex justify-between">
+                        <span>Extra capacity beds:</span>
+                        <span className="text-white">${(Math.max(0, billingBeds - 100) * 1.5).toFixed(2)}/mo</span>
+                      </div>
+                    )}
+
+                    {billingClinicians > 20 && (
+                      <div className="flex justify-between">
+                        <span>Extra clinicians seals:</span>
+                        <span className="text-white">${(Math.max(0, billingClinicians - 20) * 5).toFixed(2)}/mo</span>
+                      </div>
+                    )}
+
+                    {billingGemini && (
+                      <div className="flex justify-between text-emerald-400 font-bold">
+                        <span>Gemini SBAR AI Engine:</span>
+                        <span>$150.00/mo</span>
+                      </div>
+                    )}
+
+                    {billingFHIR && (
+                      <div className="flex justify-between">
+                        <span>HL7 / FHIR EMR sync:</span>
+                        <span className="text-white">$99.00/mo</span>
+                      </div>
+                    )}
+
+                    {billingCycle === "annual" && (
+                      <div className="flex justify-between text-emerald-500 font-bold">
+                        <span>Annual Savings (-20%):</span>
+                        <span>-20% Applied</span>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="pt-2 border-t border-slate-800 text-xs font-bold text-white flex justify-between items-center">
+                      <span>ESTIMATED DOCK PRICE:</span>
+                      <span className="text-emerald-405 text-emerald-450 text-emerald-400 text-sm">
+                        ${(() => {
+                          const base = billingPlan === "Outpatient" ? 249 : billingPlan === "Core" ? 699 : 1299;
+                          const bedsCost = Math.max(0, billingBeds - 100) * 1.5;
+                          const staffCost = Math.max(0, billingClinicians - 20) * 5;
+                          const ai = billingGemini ? 150 : 0;
+                          const fhir = billingFHIR ? 99 : 0;
+                          let running = base + bedsCost + staffCost + ai + fhir;
+                          if (billingCycle === "annual") running *= 0.8;
+                          return running.toFixed(2);
+                        })()}/mo
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pricing Plan Selector Toggle */}
+                  <div className="space-y-1">
+                    <label className="block text-[8px] font-mono tracking-wide text-slate-400 uppercase">Select Subscriptions Tier</label>
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-900 rounded-xl text-center">
+                      {["Outpatient", "Core", "Enterprise"].map((plan) => (
+                        <button
+                          key={plan}
+                          type="button"
+                          onClick={() => setBillingPlan(plan)}
+                          className={`py-1 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
+                            billingPlan === plan ? "bg-slate-800 text-white" : "text-slate-450 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          {plan}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Billing cycle toggle */}
+                  <div className="space-y-1">
+                    <label className="block text-[8px] font-mono tracking-wide text-slate-400 uppercase">Billing recurrence cycle</label>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-900 rounded-xl text-center">
+                      <button
+                        type="button"
+                        onClick={() => setBillingCycle("monthly")}
+                        className={`py-1 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
+                          billingCycle === "monthly" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        Billed Monthly
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBillingCycle("annual")}
+                        className={`py-1 text-[10px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+                          billingCycle === "annual" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <span>Annual (-20%)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Visa simulated autofills */}
+                  <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-850 flex justify-between items-center text-[10px]">
+                    <span className="font-mono text-slate-400">Card Sandbox:</span>
+                    <div className="flex gap-1.5">
+                      <button 
+                        type="button"
+                        onClick={() => { setCheckoutCard("4242 4242 4242 4242"); setCheckoutCVC("899"); }}
+                        className="bg-emerald-950/40 text-emerald-450 text-emerald-400 px-2 py-0.5 rounded font-bold border border-emerald-900/50 hover:bg-emerald-900/60 cursor-pointer"
+                      >
+                        Visa Success
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setCheckoutCard("4002 0140 0000 9999"); setCheckoutCVC("202"); }}
+                        className="bg-red-950/20 text-red-400 px-2 py-0.5 rounded font-bold border border-red-900/45 hover:bg-red-900/50 cursor-pointer"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Checkout parameters options inputs */}
+                  <div className="space-y-2 text-xs">
+                    <input 
+                      type="text" 
+                      placeholder="Credit Card security number"
+                      value={checkoutCard}
+                      onChange={(e) => setCheckoutCard(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-850 p-2 rounded-xl text-center font-mono outline-none text-white text-xs focus:border-emerald-500"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="12/29 Expiry" 
+                        value={checkoutExpiry}
+                        onChange={(e) => setCheckoutExpiry(e.target.value)}
+                        className="bg-slate-900 border border-slate-850 p-2 rounded-xl text-center font-mono outline-none text-white text-xs text-center"
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Security CVV" 
+                        maxLength={4}
+                        value={checkoutCVC}
+                        onChange={(e) => setCheckoutCVC(e.target.value)}
+                        className="bg-slate-900 border border-slate-850 p-2 rounded-xl text-center font-mono outline-none text-white text-xs text-center"
+                      />
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Submitting button */}
+                <div className="pt-2">
+                  
+                  {checkoutError && (
+                    <div className="p-2 border border-red-900/50 bg-red-950/30 text-rose-400 rounded-lg text-[10px] items-start gap-1 flex leading-relaxed mb-2 uppercase">
+                      <span>✗ {checkoutError}</span>
+                    </div>
+                  )}
+
+                  {isCheckoutProcessing ? (
+                    <div className="p-3 bg-slate-900 border border-slate-850 rounded-xl space-y-1 font-mono text-[9px] leading-relaxed uppercase text-left">
+                      <div className="flex gap-2 items-center text-white">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                        <span>Verifying credit token hashes...</span>
+                      </div>
+                    </div>
+                  ) : checkoutSuccess ? (
+                    <div className="bg-emerald-500 text-slate-950 font-bold p-3 rounded-xl block text-center font-mono text-[11px] leading-none">
+                      ✓ Workspace Lease Activated
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsCheckoutProcessing(true);
+                        setCheckoutError(null);
+                        await new Promise(res => setTimeout(res, 1200));
+                        
+                        try {
+                          if (checkoutCard.replaceAll(" ", "") === "4002014000009999") {
+                            throw new Error("Transacting Refused: Insufficient credit limit allocation in selected checkout budget.");
+                          }
+
+                          // Save to expired trials and update admins
+                          const finalPlanName = `${billingPlan} (${billingCycle === "annual" ? "Annual" : "Monthly"})`;
+                          try {
+                            await setDoc(doc(db, "admins", adminUid), {
+                              uid: adminUid,
+                              role: "Hospital Admin",
+                              createdAt: adminCreatedAt || new Date().toISOString(),
+                              isPaid: true,
+                              paymentPlan: finalPlanName,
+                              bedsCountAllocated: billingBeds,
+                              cliniciansCountAllocated: billingClinicians,
+                              deployGeminiAI: billingGemini,
+                              deployHL7FHIR: billingFHIR
+                            });
+                          } catch (err) {
+                            console.warn("DB subscription checking exception:", err);
+                          }
+
+                          setCheckoutSuccess(true);
+                          if (onSubscriptionChange) {
+                            onSubscriptionChange(true, finalPlanName);
+                          }
+                          setTimeout(() => {
+                            setCheckoutSuccess(false);
+                          }, 2000);
+
+                        } catch (err: any) {
+                          setCheckoutError(err.message || "Card processed failure. Please check inputs.");
+                        } finally {
+                          setIsCheckoutProcessing(false);
+                        }
+                      }}
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black tracking-wide text-xs py-3 rounded-xl transition-all shadow active:scale-95 text-center cursor-pointer"
+                    >
+                      Process SaaS Subscription
+                    </button>
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* SIMULATED RECEIPT PDF POPUP PORTAL OVERLAY */}
+          {selectedInvoiceReceipt && (
+            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-[150] flex items-center justify-center p-4">
+              <div className="bg-white border rounded-3xl p-6 max-w-xl w-full text-slate-800 space-y-5 shadow-2xl relative text-left">
+                
+                {/* Close modal */}
+                <button 
+                  onClick={() => setSelectedInvoiceReceipt(null)}
+                  className="absolute top-4 right-4 p-1.5 text-slate-400 bg-slate-50 hover:bg-slate-100 hover:text-slate-700 rounded-full border border-slate-150 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                <div className="text-center pb-2 border-b border-slate-100 space-y-1">
+                  <div className="inline-flex p-1.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-extrabold text-slate-900 text-lg">Hospital Workspace License Receipt</h4>
+                  <span className="font-mono text-[9px] text-slate-500 uppercase">ISO-27001 SECURED DISPATCH</span>
+                </div>
+
+                <div className="bg-slate-50 p-4.5 rounded-2xl border space-y-4 font-mono text-xs">
+                  <div className="flex justify-between border-b border-slate-205 pb-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-450 uppercase block font-semibold">TRIAL CLIENT IDENTITY:</span>
+                      <strong className="text-slate-800 block">{selectedInvoiceReceipt.name}</strong>
+                      <span className="text-[9px] text-slate-500 block mt-0.5">{selectedInvoiceReceipt.email}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-450 uppercase block font-semibold">VOUCHER INVOICE NO:</span>
+                      <strong className="text-emerald-600 block">{selectedInvoiceReceipt.id}</strong>
+                      <span className="text-[9px] text-slate-500 block mt-0.5">{selectedInvoiceReceipt.date}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between font-bold border-b pb-1.5">
+                      <span>PLAN PARAMETER DETAILS</span>
+                      <span>SUM STATUS</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>{selectedInvoiceReceipt.plan} Core Deployment Lease</span>
+                      <span>${selectedInvoiceReceipt.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>+ Active HIMS Workspace Client Databases Sync</span>
+                      <span>INCLUDED</span>
+                    </div>
+                    {selectedInvoiceReceipt.isTrial && (
+                      <div className="flex justify-between text-amber-600 font-bold">
+                        <span>• Zero Initial Activation Sandbox Fee</span>
+                        <span>-$0.00</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-slate-900 border-t pt-2 text-sm">
+                      <span>TOTAL BILLED TRANSACTION:</span>
+                      <span>${selectedInvoiceReceipt.amount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-100 p-2 rounded text-[10px] text-slate-500 text-center leading-relaxed">
+                    SaaS subscription charges accrue in automated recurring cycles every 30 days. No manual billing disputes pending.
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 pt-1.5">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex-1 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer text-center"
+                  >
+                    Print Voucher / Receipt
+                  </button>
+                  <button
+                    onClick={() => setSelectedInvoiceReceipt(null)}
+                    className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer text-center"
+                  >
+                    Dismiss View
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {activeSubTab === "profile" && (
+        <div className="space-y-6 animate-fadeIn text-left">
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <span className="text-[10px] bg-slate-100 text-slate-800 border border-slate-205 px-2.5 py-1 rounded font-bold uppercase tracking-wider">Hospital Branding Suite</span>
+              <h3 className="text-lg font-bold text-slate-900 mt-2">Facility Identity & Invoice Header Config</h3>
+              <p className="text-xs text-slate-500 max-w-2xl leading-normal">
+                Manage your hospital's public profile, email records, and corporate branding. The selected logo and header details will reflect dynamically on every consultation prescription, pathology laboratory sheet, and patient checkout invoice automatically.
+              </p>
+            </div>
+
+            {profileAlert && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-4 rounded-xl flex items-center justify-between shadow-xs animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-xs">{profileAlert}</span>
+                </div>
+                <button 
+                  onClick={() => setProfileAlert("")}
+                  className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Form Entry Column */}
+              <div className="space-y-4 border-r border-slate-100 pr-0 lg:pr-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Hospital Legal Name</label>
+                    <input
+                      type="text"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500 font-semibold"
+                      placeholder="e.g. Wellness General Hospital"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Corporate Motto / Tagline</label>
+                    <input
+                      type="text"
+                      value={profileTagline}
+                      onChange={(e) => setProfileTagline(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500"
+                      placeholder="e.g. Caring with absolute precision"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Public Contact Phone</label>
+                    <input
+                      type="text"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500 font-mono"
+                      placeholder="+91 99999 88888"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Administrative Email</label>
+                    <input
+                      type="email"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500 font-mono"
+                      placeholder="billing@wellness.com"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Tax/GSTIN Registration Number</label>
+                    <input
+                      type="text"
+                      value={profileTax}
+                      onChange={(e) => setProfileTax(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500 font-mono"
+                      placeholder="GSTIN-27AAHCM1029C1Z5"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Health Board Accreditation</label>
+                    <input
+                      type="text"
+                      value={profileAccreditation}
+                      onChange={(e) => setProfileAccreditation(e.target.value)}
+                      className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500"
+                      placeholder="NABH Certified / JCI Gold Seal"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-500">Full Postal Address</label>
+                  <textarea
+                    rows={2}
+                    value={profileAddress}
+                    onChange={(e) => setProfileAddress(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-lg outline-hidden focus:border-indigo-500"
+                    placeholder="704, Wellness Boulevard, Sector 15, HIMS Square, Mumbai, 400051"
+                  />
+                </div>
+
+                {/* Logo Selection Section */}
+                <div className="space-y-3 bg-slate-50/50 p-4 border border-slate-100 rounded-xl">
+                  <div>
+                    <label className="text-[10px] uppercase font-mono font-bold tracking-wide text-slate-600 block">Hospital Logo Branding</label>
+                    <span className="text-[10px] text-slate-450 block">Select a pre-designed premium healthcare badge or upload your own file.</span>
+                  </div>
+
+                  {/* Built-in Medical Icon Badges presets */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: "red_cross", name: "Red Cross Shield", color: "text-red-650 bg-red-50 border-red-200", render: () => (
+                        <div className="w-5 h-5 flex items-center justify-center bg-red-600 text-white rounded font-black text-xs leading-none">+</div>
+                      )},
+                      { id: "emerald_leaf", name: "Emerald Bio Leaf", color: "text-emerald-700 bg-emerald-50 border-emerald-250", render: () => (
+                        <div className="w-5 h-5 flex items-center justify-center bg-emerald-650 text-white rounded-full font-bold text-[10px]">☘</div>
+                      )},
+                      { id: "blue_heart", name: "Care Heart", color: "text-sky-700 bg-sky-50 border-sky-200", render: () => (
+                        <div className="w-5 h-5 flex items-center justify-center bg-indigo-600 text-white rounded font-bold text-[9px]">♥</div>
+                      )},
+                      { id: "preset:default_cross", name: "Golden Caduceus", color: "text-amber-800 bg-amber-50 border-amber-200", render: () => (
+                        <div className="w-5 h-5 flex items-center justify-center bg-amber-500 text-white rounded font-bold text-[9px]">🏥</div>
+                      )}
+                    ].map((p) => {
+                      const isSelected = profileLogoUrl === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setProfileLogoUrl(p.id)}
+                          className={`p-2 rounded-lg border text-center flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                            isSelected 
+                              ? "bg-slate-900 text-white border-slate-900 ring-2 ring-indigo-500" 
+                              : "bg-white text-slate-650 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {p.render()}
+                          <span className="text-[9px] font-semibold break-all leading-snug">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Manual File Base64 Uploader */}
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <span className="text-[9px] uppercase font-mono font-bold text-slate-500 block">Or upload custom image:</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 500 * 1024) {
+                            alert("Logo limit exceeded. Please upload an image under 500KB.");
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            if (event.target?.result) {
+                              setProfileLogoUrl(event.target.result as string);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateHospitalProfile({
+                        name: profileName,
+                        tagline: profileTagline,
+                        phone: profilePhone,
+                        email: profileEmail,
+                        address: profileAddress,
+                        logoUrl: profileLogoUrl,
+                        taxNumber: profileTax,
+                        accreditation: profileAccreditation
+                      });
+                      setProfileAlert("Branding metrics successfully updated and synchronized across all healthcare departments.");
+                      setTimeout(() => setProfileAlert(""), 4000);
+                    }}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl text-xs cursor-pointer text-center"
+                  >
+                    Save & Secure Corporate Identity
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Live Document Header Mockup Column */}
+              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-6 min-h-[400px] flex flex-col justify-between relative shadow-inner">
+                <div className="absolute top-2 right-2 text-[9px] font-mono text-slate-400 font-bold bg-white px-2 py-0.5 rounded border border-slate-100">
+                  REAL-TIME DOCUMENT HEADER PREVIEW
+                </div>
+
+                <div className="bg-white border border-slate-300 rounded-xl p-5 shadow-sm space-y-4 flex-1">
+                  
+                  {/* Simulated Official Document Letterhead Header */}
+                  <div className="flex justify-between items-start border-b-2 border-slate-950 pb-4">
+                    <div className="flex gap-2.5 items-center">
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
+                        {profileLogoUrl === "red_cross" ? (
+                          <div className="w-6 h-6 bg-red-650 text-white flex items-center justify-center rounded font-extrabold text-sm">+</div>
+                        ) : profileLogoUrl === "emerald_leaf" ? (
+                          <div className="text-emerald-700 font-black text-xl">☘</div>
+                        ) : profileLogoUrl === "blue_heart" ? (
+                          <div className="text-sky-505 font-black text-xl text-indigo-650">♥</div>
+                        ) : profileLogoUrl && profileLogoUrl.startsWith("data:") ? (
+                          <img src={profileLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="text-xl">🏥</div>
+                        )}
+                      </div>
+                      
+                      <div className="text-left">
+                        <h4 className="text-sm font-bold text-slate-950 font-sans tracking-tight">{profileName || "MediFlow City General Hospital"}</h4>
+                        <p className="text-[10px] text-slate-550 font-medium italic -mt-0.5">{profileTagline || "Secured Closed-Loop Inpatient Healthcare Services"}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right text-[9px] text-slate-500 font-mono space-y-0.5 max-w-[170px]">
+                      <div className="font-semibold text-slate-800">DOCUMENT ORIGIN</div>
+                      <div>{profilePhone || "+91 98765 43210"}</div>
+                      <div>{profileEmail || "admin@mediflow-hospital.com"}</div>
+                    </div>
+                  </div>
+
+                  {/* Simulated Body Content */}
+                  <div className="space-y-3 pt-2 text-left">
+                    <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded border border-slate-100">
+                      <div>
+                        <span className="text-[9px] text-slate-400 block font-mono">PATIENT IDENTIFIER</span>
+                        <span className="text-xs font-bold text-slate-800">MALVIYA PRATYUSH (Age: 26)</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] text-slate-400 block font-mono">RECEIPT ID / DATA</span>
+                        <span className="text-xs font-semibold text-slate-700 font-mono">INV-2026-00438</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex justify-between text-xs border-b border-dashed border-slate-200 pb-1 text-slate-500 font-mono">
+                        <span>OPD Consulation (Dr. Kumar)</span>
+                        <span>$150.00</span>
+                      </div>
+                      <div className="flex justify-between text-xs border-b border-dashed border-slate-200 pb-1 text-slate-550 font-mono">
+                        <span>Laboratory CBC Pathology Panel</span>
+                        <span>$85.00</span>
+                      </div>
+                      <div className="flex justify-between text-xs pb-1 font-mono text-slate-900 font-bold">
+                        <span>Institutional Grand Total:</span>
+                        <span>$235.00</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Simulated Official Footer */}
+                  <div className="border-t border-slate-200 pt-3 flex justify-between items-center text-[8.5px] text-slate-400 font-mono mt-8">
+                    <div className="space-y-0.5 text-left max-w-[200px]">
+                      <div>{profileAddress || "704, Wellness Boulevard, Sector 15, HIMS Square, Mumbai, 400051"}</div>
+                      {profileTax && <div className="font-semibold text-slate-600">Tax ID: {profileTax}</div>}
+                    </div>
+                    <div className="text-right max-w-[120px]">
+                      <div className="text-indigo-650 font-bold font-sans">{profileAccreditation || "NABH ACCREDITED"}</div>
+                      <div className="font-semibold text-slate-500 uppercase tracking-widest mt-1">OFFICIAL SEAL</div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="text-[10px] text-slate-400 font-mono italic leading-normal text-center mt-3">
+                  Check out how your updated corporate logo renders with crystal clarity on invoices, lab receipts and medication prescriptions instantly.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "landing" && currentUser?.role === "Super Admin" && (
         <div className="space-y-6">
           {/* CMS Success Alert Notification Box */}
           {cmsAlert && (

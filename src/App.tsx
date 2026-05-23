@@ -17,6 +17,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  Clock,
   Menu,
   X,
   Lock,
@@ -36,6 +37,7 @@ import { LabModule } from "./components/LabModule";
 import { PharmacyModule } from "./components/PharmacyModule";
 import { FinanceBillingModule } from "./components/FinanceBillingModule";
 import { AdminModule } from "./components/AdminModule";
+import { HRModule } from "./components/HRModule";
 import { AIChatBot } from "./components/AIChatBot";
 import { SaaSLandingPage } from "./components/SaaSLandingPage";
 import { LoginPortal } from "./components/LoginPortal";
@@ -277,6 +279,10 @@ export default function App() {
           }
           setViewMode("app");
         }} 
+        onOpenAuth={(signUpMode) => {
+          setInitialSignUp(signUpMode);
+          setViewMode("app");
+        }}
       />
     );
   }
@@ -365,20 +371,42 @@ export default function App() {
       ]
     },
     {
+      id: "hr_group",
+      title: "Human Resources",
+      icon: Users,
+      subItems: [
+        { id: "hr", subId: "directory", label: "Employee Directory", icon: Users, desc: "Clinician roster & profiles" },
+        { id: "hr", subId: "shifts", label: "Shift Rotations", icon: Clock, desc: "Track medical care shifts" },
+        { id: "hr", subId: "payroll", label: "Payroll Ledger", icon: DollarSign, desc: "Disburse fixed pay & commissions" },
+        { id: "hr", subId: "rbac", label: "Compliance Clearances", icon: ShieldCheck, desc: "Active system RBAC permissions" }
+      ]
+    },
+    {
       id: "admin_group",
-      title: "Security & Operations",
+      title: "Settings & Staff",
       icon: Settings,
       subItems: [
-        { id: "admin", subId: "directory", label: "HR Staff Directory", icon: Users, desc: "Personnel records registry" },
-        { id: "admin", subId: "roles", label: "Custom RBAC Architect", icon: ShieldCheck, desc: "Design clinical custom roles" },
-        { id: "admin", subId: "logs", label: "Security Audit Trails", icon: FileSpreadsheet, desc: "HIPAA complaint log audit" },
-        { id: "admin", subId: "diagnostics", label: "System Diagnostics", icon: Cpu, desc: "Database gauges & sandbox" },
-        { id: "admin", subId: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage SaaS styles, texts & images" }
+        { id: "admin", subId: "profile", label: "Branding & Profile", icon: Users, desc: "Hospital logo, tagline & letterhead" },
+        { id: "admin", subId: "directory", label: "Staff Directory", icon: Users, desc: "Manage employee accounts & access" },
+        { id: "admin", subId: "roles", label: "Staff Access & Roles", icon: ShieldCheck, desc: "Control permissions and screen access" },
+        { id: "admin", subId: "logs", label: "Security & Action History", icon: FileSpreadsheet, desc: "Automatic history log of all activity" },
+        { id: "admin", subId: "diagnostics", label: "Settings & Cloud Sync", icon: Cpu, desc: "Sync data to cloud & configure preferences" },
+        { id: "admin", subId: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage your simple website styles and texts" }
       ]
     }
   ];
 
   const isSuperAdminAccount = authenticatedUser?.role === "Super Admin";
+
+  const filteredBaseSidebarNavigation = baseSidebarNavigation.map((group) => {
+    if (group.id === "admin_group" && !isSuperAdminAccount) {
+      return {
+        ...group,
+        subItems: group.subItems.filter((sub) => sub.subId !== "landing")
+      };
+    }
+    return group;
+  });
 
   const sidebarNavigation = isSuperAdminAccount
     ? [
@@ -387,12 +415,16 @@ export default function App() {
           title: "SaaS Control Tower",
           icon: ShieldCheck,
           subItems: [
-            { id: "super_admin", subId: "hospitals", label: "SaaS Workspace Desk", icon: ShieldCheck, desc: "Manage SaaS Hospital tenants & plans" }
+            { id: "super_admin", subId: "hospitals", label: "SaaS Workspace Tenants", icon: Users, desc: "Manage SaaS Hospital tenants & plans" },
+            { id: "super_admin", subId: "usage", label: "Usage & Resource Limits", icon: Cpu, desc: "Monitor tenant API & Bed limits" },
+            { id: "super_admin", subId: "finance", label: "Subscription Revenues", icon: DollarSign, desc: "Track premium subscription metrics" },
+            { id: "super_admin", subId: "config", label: "Specialties Directory", icon: Settings, desc: "Global clinical specialty templates" },
+            { id: "super_admin", subId: "operations", label: "Router Ops Guard", icon: Activity, desc: "Ingress routing & server latencies" },
+            { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Quick edit of landing page CMS contents" }
           ]
-        },
-        ...baseSidebarNavigation
+        }
       ]
-    : baseSidebarNavigation;
+    : filteredBaseSidebarNavigation;
 
   const hasAccessToActiveTab = isSuperAdminAccount || activeEmployee.permittedModules.includes(activeTab);
 
@@ -426,19 +458,21 @@ export default function App() {
         </div>
 
         {/* Dynamic SaaS Mode Toggle Trigger */}
-        <div className="p-4 bg-slate-950/40 border-b border-slate-800 text-left">
-          <button
-            onClick={() => setViewMode("saas")}
-            className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/25 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
-            id="sidebar_btn_saas_tour"
-          >
-            <span className="flex items-center gap-1.5 shrink-0">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              SaaS Marketing Site
-            </span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {isSuperAdminAccount && (
+          <div className="p-4 bg-slate-950/40 border-b border-slate-800 text-left">
+            <button
+              onClick={() => setViewMode("saas")}
+              className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/25 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+              id="sidebar_btn_saas_tour"
+            >
+              <span className="flex items-center gap-1.5 shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                SaaS Marketing Site
+              </span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Dynamic User Profile Context inside Sidebar */}
         <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2.5">
@@ -520,16 +554,16 @@ export default function App() {
                 {/* Header title click expands/collapses group */}
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-white uppercase font-mono tracking-wider py-1.5 px-1 rounded-md hover:bg-slate-800/30 transition-all select-none"
+                  className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-slate-200 uppercase font-mono tracking-wider py-2 px-2 rounded-lg hover:bg-slate-800/35 transition-all duration-300 ease-in-out select-none group"
                 >
                   <div className="flex items-center gap-2">
-                    <GroupIcon className="w-3.5 h-3.5 text-slate-500" />
+                    <GroupIcon className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors duration-300" />
                     <span>{group.title}</span>
                   </div>
                   {isGroupExpanded ? (
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors duration-300" />
                   ) : (
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors duration-300" />
                   )}
                 </button>
 
@@ -548,25 +582,32 @@ export default function App() {
                           <button
                             key={sub.subId}
                             onClick={() => selectSubMenu(sub.id, sub.subId)}
-                            className={`w-full text-left py-2 px-3 rounded-lg text-xs font-normal transition-all flex items-center justify-between border ${
+                            className={`w-full text-left py-2 rounded-lg text-xs font-normal transition-all duration-350 ease-in-out flex items-center justify-between border-l-2 group ${
                               sub.isActive
-                                ? "bg-emerald-500 text-slate-950 border-emerald-400 font-semibold shadow-sm"
-                                : "text-slate-350 hover:text-white border-transparent hover:bg-slate-800/60"
+                                ? "bg-emerald-950/45 text-emerald-400 border-l-emerald-500 border-y border-y-emerald-500/20 border-r border-r-emerald-500/20 pl-3.5 pr-2.5 font-semibold shadow-[0_0_8px_rgba(16,185,129,0.06)]"
+                                : "text-slate-350 hover:text-white border-l-transparent border-y border-y-transparent border-r border-r-transparent hover:border-l-emerald-500/35 hover:bg-slate-800/45 hover:pl-3.5 pl-2.5 pr-2.5"
                             }`}
                             id={`sidebar_btn_${sub.id}_${sub.subId}`}
                           >
                             <div className="flex items-center gap-2 truncate">
-                              <SubIcon className={`w-3.5 h-3.5 shrink-0 ${sub.isActive ? "text-slate-950" : (sub.isPermitted ? "text-slate-500" : "text-red-500")}`} />
+                              <SubIcon className={`w-3.5 h-3.5 shrink-0 transition-all duration-300 ${
+                                sub.isActive 
+                                  ? "text-emerald-400 scale-105" 
+                                  : (sub.isPermitted ? "text-slate-500 group-hover:text-slate-300" : "text-red-500/80")
+                              }`} />
                               <span className="truncate">{sub.label}</span>
                             </div>
 
                             {/* Access status Lock tag */}
                             {!sub.isPermitted ? (
-                              <span className="text-[7px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 uppercase tracking-wide">
+                              <span className="text-[7px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 uppercase tracking-wide group-hover:bg-red-500/20 transition-all duration-300">
                                 LOCK
                               </span>
                             ) : sub.isActive ? (
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-950 shrink-0"></span>
+                              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+                              </span>
                             ) : null}
                           </button>
                         );
@@ -660,21 +701,23 @@ export default function App() {
                 </div>
 
                 {/* Mobile SaaS Switch Button */}
-                <div className="p-4 bg-slate-950/30 border-b border-slate-800 text-left">
-                  <button
-                    onClick={() => {
-                      setViewMode("saas");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                      SaaS Marketing Portal
-                    </span>
-                    <ArrowRight className="w-3 h-3 text-emerald-400" />
-                  </button>
-                </div>
+                {isSuperAdminAccount && (
+                  <div className="p-4 bg-slate-950/30 border-b border-slate-800 text-left">
+                    <button
+                      onClick={() => {
+                        setViewMode("saas");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                        SaaS Marketing Portal
+                      </span>
+                      <ArrowRight className="w-3 h-3 text-emerald-400" />
+                    </button>
+                  </div>
+                )}
 
                 {/* Dynamic User Profile Context inside Mobile Drawer */}
                 <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2.5">
@@ -748,21 +791,21 @@ export default function App() {
                       <div key={group.id} className="space-y-1">
                         <button
                           onClick={() => toggleGroup(group.id)}
-                          className="w-full flex items-center justify-between text-[10px] font-semibold text-slate-400 hover:text-white uppercase font-mono tracking-wider py-1 select-none"
+                          className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-slate-200 uppercase font-mono tracking-wider py-1.5 px-2 rounded-lg hover:bg-slate-800/35 transition-all duration-300 ease-in-out select-none group"
                         >
                           <div className="flex items-center gap-1.5">
-                            <GroupIcon className="w-3.5 h-3.5 text-slate-500" />
+                            <GroupIcon className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors duration-300" />
                             <span>{group.title}</span>
                           </div>
                           {isGroupExpanded ? (
-                            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors duration-300" />
                           ) : (
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors duration-300" />
                           )}
                         </button>
 
                         {isGroupExpanded && (
-                          <div className="pl-2 space-y-1 pt-1">
+                          <div className="pl-2.5 space-y-1 pt-1">
                             {group.subItems.map((sub) => {
                               const SubIcon = sub.icon;
                               const isPermitted = activeEmployee.permittedModules.includes(sub.id);
@@ -771,22 +814,31 @@ export default function App() {
                                 <button
                                   key={sub.subId}
                                   onClick={() => selectSubMenu(sub.id, sub.subId)}
-                                  className={`w-full text-left py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-between border ${
+                                  className={`w-full text-left py-2 rounded-lg text-xs font-normal transition-all duration-350 ease-in-out flex items-center justify-between border-l-2 group ${
                                     isActive
-                                      ? "bg-emerald-500 text-slate-950 border-emerald-400 font-semibold"
-                                      : "text-slate-350 hover:text-white border-transparent hover:bg-slate-800/60"
+                                      ? "bg-emerald-950/45 text-emerald-400 border-l-emerald-500 border-y border-y-emerald-500/20 border-r border-r-emerald-500/20 pl-3.5 pr-2.5 font-semibold shadow-[0_0_8px_rgba(16,185,129,0.06)]"
+                                      : "text-slate-350 hover:text-white border-l-transparent border-y border-y-transparent border-r border-r-transparent hover:border-l-emerald-500/35 hover:bg-slate-800/45 hover:pl-3.5 pl-2.5 pr-2.5"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2 truncate">
-                                    <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-slate-950" : (isPermitted ? "text-slate-500" : "text-red-500")}`} />
+                                    <SubIcon className={`w-3.5 h-3.5 shrink-0 transition-all duration-300 ${
+                                      isActive 
+                                        ? "text-emerald-400 scale-105" 
+                                        : (isPermitted ? "text-slate-500 group-hover:text-slate-300" : "text-red-500/80")
+                                    }`} />
                                     <span className="truncate">{sub.label}</span>
                                   </div>
 
-                                  {!isPermitted && (
-                                    <span className="text-[7px] bg-red-500/10 text-red-400 border border-red-500/20 px-1 py-0.5 rounded font-mono font-bold shrink-0">
+                                  {!isPermitted ? (
+                                    <span className="text-[7px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold shrink-0 uppercase tracking-wide group-hover:bg-red-500/20 transition-all duration-300">
                                       LOCK
                                     </span>
-                                  )}
+                                  ) : isActive ? (
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+                                    </span>
+                                  ) : null}
                                 </button>
                               );
                             })}
@@ -873,10 +925,13 @@ export default function App() {
                 ) : (
                   <>
                     {activeTab === "dashboard" && (
-                      <Dashboard store={store} setActiveTab={setActiveTab} setSelectedPatientId={setSelectedPatientId} />
+                      <Dashboard store={store} setActiveTab={setActiveTab} setSelectedPatientId={setSelectedPatientId} activeSubTab={activeSubTab} />
                     )}
                     {activeTab === "opd" && (
                       <OPDModule store={store} selectedPatientId={selectedPatientId} setSelectedPatientId={setSelectedPatientId} />
+                    )}
+                    {activeTab === "hr" && (
+                      <HRModule store={store} />
                     )}
                     {activeTab === "ipd" && (
                       <IPDModule store={store} />
@@ -902,6 +957,14 @@ export default function App() {
                         adminUid={authenticatedUser?.uid || ""}
                         adminCreatedAt={authenticatedUser?.createdAt || ""}
                         adminIsPaid={authenticatedUser ? !!authenticatedUser.isPaid : false}
+                        onSubscriptionChange={async (isPaid, planName) => {
+                          setAuthenticatedUser(prev => prev ? {
+                            ...prev,
+                            isPaid,
+                            paymentPlan: planName
+                          } : null);
+                          await store.syncFirestoreData();
+                        }}
                       />
                     )}
                   </>

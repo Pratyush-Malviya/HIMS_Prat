@@ -29,6 +29,7 @@ import {
 
 interface SaaSLandingPageProps {
   onLaunchApp: (role: "Hospital Admin" | "Super Admin") => void;
+  onOpenAuth?: (signUp: boolean) => void;
   store?: any;
 }
 
@@ -49,7 +50,7 @@ interface PainPointSlide {
   remedyBullets: string[];
 }
 
-export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
+export function SaaSLandingPage({ onLaunchApp, onOpenAuth, store }: SaaSLandingPageProps) {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   // Pricing Calculator State
   const [bedCapacity, setBedCapacity] = useState<number>(150);
@@ -1507,14 +1508,14 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
 
             {/* Modal Header */}
             <div className="p-8 pb-5 border-b border-rose-100/50 text-center space-y-2 bg-gradient-to-b from-slate-50 to-white">
-              <div className="inline-flex py-1 px-3 bg-emerald-50 text-emerald-700 text-[10px] font-mono font-bold uppercase rounded-full">
-                SELECT OPERATIONAL CONTEXT
+              <div className="inline-flex py-1 px-3 bg-emerald-50 text-emerald-700 text-[10px] font-sans font-bold uppercase rounded-full">
+                CHOOSE ACCESS TYPE
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
                 How would you like to enter MediFlow?
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                Choose a pre-configured sandbox session profile. Instantly provision and access either the Hospital Care Module or SaaS Administration Panel.
+                Choose the dashboard role you want to test out. You can enter as a Hospital Doctor/Staff, or as the System Owner managing subscriptions.
               </p>
             </div>
 
@@ -1527,11 +1528,11 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                     <Stethoscope className="w-6 h-6 stroke-[2]" />
                   </div>
                   <div>
-                    <h4 className="text-base font-bold text-slate-900 group-hover:text-emerald-750 transition-colors">Hospital Administrator</h4>
-                    <span className="text-[10px] font-mono font-bold text-slate-400 block mt-0.5">ROLE: hospital_admin</span>
+                    <h4 className="text-base font-bold text-slate-900 group-hover:text-emerald-750 transition-colors">Hospital Staff Dashboard</h4>
+                    <span className="text-[10px] font-semibold text-emerald-600 block mt-0.5">For Doctors, Nurses & Staff</span>
                   </div>
-                  <p className="text-xs text-slate-550 text-slate-505 text-slate-500 leading-relaxed">
-                    Access standard outpatient (OPD) logs, inpatient (IPD) ward charts, pharmacy medicine depots, laboratory path screens, and clinic billings.
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    View patients, consult on outpatient (OPD) queues, allocate ward beds, manage medicine stock, paths laboratory trials, and customer checkout billing.
                   </p>
                 </div>
                 <button
@@ -1541,7 +1542,7 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                   }}
                   className={`w-full py-3 px-4 ${colorClasses.bg} ${colorClasses.hoverBg} text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm mt-2`}
                 >
-                  <span>Enter Hospital Admin</span>
+                  <span>Open Hospital Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5 text-white" />
                 </button>
               </div>
@@ -1553,11 +1554,11 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                     <ShieldCheck className="w-6 h-6 stroke-[2]" />
                   </div>
                   <div>
-                    <h4 className="text-base font-bold text-slate-900 group-hover:text-indigo-750 transition-colors">Super Admin</h4>
-                    <span className="text-[10px] font-mono font-bold text-indigo-400 block mt-0.5">ROLE: super_admin</span>
+                    <h4 className="text-base font-bold text-slate-900 group-hover:text-indigo-750 transition-colors">System Owner Panel</h4>
+                    <span className="text-[10px] font-semibold text-indigo-650 text-indigo-600 block mt-0.5">For SaaS Platform Admins</span>
                   </div>
-                  <p className="text-xs text-slate-550 text-slate-505 text-slate-500 leading-relaxed">
-                    Comprehensive platform access. Manage active SaaS subscriptions, modify global CMS elements, review active trial registries, and test all Hospital modules.
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Manage subscribed tenant hospitals, modify website themes/palettes, alter pricing templates, review diagnostic reports, and audit all medical modules.
                   </p>
                 </div>
                 <button
@@ -1567,16 +1568,46 @@ export function SaaSLandingPage({ onLaunchApp, store }: SaaSLandingPageProps) {
                   }}
                   className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm mt-2"
                 >
-                  <span>Enter Super Admin</span>
+                  <span>Open System Owner Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5 text-white" />
                 </button>
               </div>
             </div>
 
+            {/* Real isolated database signin & signup portals */}
+            <div className="p-6 bg-slate-900 text-slate-200 border-t border-slate-800 text-center space-y-3">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="text-left">
+                  <span className="text-[10px] font-mono tracking-wider font-extrabold text-emerald-400 block uppercase">SECURE CLOUD DEPLOYMENTS</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">Want to test true isolated clinical accounts with a 14-day free trial?</span>
+                </div>
+                <div className="flex gap-2.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      setIsRoleModalOpen(false);
+                      if (onOpenAuth) onOpenAuth(true); // Sign up mode
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                  >
+                    Register 14-Day Trial
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsRoleModalOpen(false);
+                      if (onOpenAuth) onOpenAuth(false); // Sign in mode
+                    }}
+                    className="px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-750 hover:border-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                  >
+                    Staff Login
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Modal Footer Banner */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100/80 text-center text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1.5">
+            <div className="p-4 bg-slate-50 border-t border-slate-100/80 text-center text-[10px] text-slate-400 font-sans flex items-center justify-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Symmetric secure session token generated inside local environment memory</span>
+              <span>🔒 Sandbox Sandbox Environment • No payment details or setup required to test the features</span>
             </div>
           </div>
         </div>
