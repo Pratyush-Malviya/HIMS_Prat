@@ -81,11 +81,11 @@ interface TenantQuota {
 
 export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSubTab }: SuperAdminModuleProps) {
   const [activeTab, setActiveTab] = useState<
-    "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing"
-  >("hospitals");
+    "dashboard" | "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing"
+  >("dashboard");
 
   useEffect(() => {
-    if (activeSubTab && ["hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing"].includes(activeSubTab)) {
+    if (activeSubTab && ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing"].includes(activeSubTab)) {
       setActiveTab(activeSubTab as any);
     }
   }, [activeSubTab]);
@@ -99,7 +99,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
 
   const [tenants, setTenants] = useState<HospitalTenant[]>([]);
   const [tenantsLoading, setTenantsLoading] = useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = useState<string>("").trim();
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -524,164 +524,32 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 text-left font-sans" id="super_admin_panel_root">
+    <div className="w-full text-left font-sans" id="super_admin_panel_root">
       
-      {/* 1. Left Nav Sidebar: Master Controls */}
-      <div className="w-full lg:w-64 shrink-0 space-y-4">
-        <div className="bg-slate-950 border border-slate-900 rounded-2xl p-4 text-white space-y-3 relative overflow-hidden select-none">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-          
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-500 text-slate-950 rounded-lg max-w-fit shadow-md shadow-emerald-500/10">
-              <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
+      {/* 2. Main Content Board */}
+      <div className="space-y-6">
+        
+        {/* Top Master Header Row with dataset metrics sync */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-150 p-4 rounded-2xl shadow-xs select-none">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-slate-900 text-emerald-400 rounded-xl shadow-md shadow-emerald-500/5 border border-slate-800">
+              <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
-              <div className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-400">Cloud Console</div>
-              <h3 className="text-sm font-extrabold tracking-tight">MediFlow SaaS SaaS</h3>
+              <div className="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600">Secure Cloud Console Node</div>
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mt-0.5">MediFlow SaaS Control Tower</h3>
             </div>
           </div>
-
-          <p className="text-[10px] text-slate-400 leading-normal">
-            Master node dashboard: manage isolated tenants, SLA rosters, and Google Gemini parameters dynamically.
-          </p>
-        </div>
-
-        {/* Vertical Navigation Buttons */}
-        <div className="bg-white border border-slate-150 p-2 rounded-2xl space-y-1 shadow-xs select-none">
-          <button 
-            onClick={() => handleTabChange("hospitals")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "hospitals" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
+          
+          <button
+            onClick={fetchHospitalTenants}
+            className="px-3.5 py-1.5 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-600 hover:text-slate-900 text-xs rounded-xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs self-start sm:self-auto"
+            title="Pulls and validates active database tenants details across namespaces."
           >
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 shrink-0" />
-              <span>Hospital Tenants</span>
-            </div>
-            <span className="font-mono text-[9px] px-1 bg-slate-150 rounded text-slate-600 font-bold">{tenants.length}</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("usage")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-              activeTab === "usage" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Sliders className="w-4 h-4 shrink-0" />
-            <span>Usage & Limits</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("finance")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "finance" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 shrink-0" />
-              <span>SaaS Pricing & Revenues</span>
-            </div>
-            <span className="font-mono text-[9px] px-1 bg-emerald-500 text-slate-950 rounded font-black">${mrrValue} MRR</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("config")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-              activeTab === "config" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Settings className="w-4 h-4 shrink-0" />
-            <span>Global Specialties Preset</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("operations")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "operations" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 shrink-0" />
-              <span>Router Ops Guard</span>
-            </div>
-            <span className="text-[10px] text-emerald-500 font-bold">● {apiLatencyMs}ms</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("onboarding")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-              activeTab === "onboarding" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <UserCheck className="w-4 h-4 shrink-0" />
-            <span>Onboarding Milestones</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("support")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "support" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 shrink-0" />
-              <span>Support Desk CRM</span>
-            </div>
-            <span className="font-mono text-[9px] px-1 bg-rose-50 text-rose-500 rounded font-bold animate-pulse">4 active</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("security")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "security" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 shrink-0" />
-              <span>HIPAA Ledger & JIT</span>
-            </div>
-            <span className="font-mono text-[9px] px-1 bg-indigo-50 text-indigo-600 rounded font-bold">Secured</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("ai")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "ai" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <BrainCircuit className="w-4 h-4 shrink-0 text-emerald-500" />
-              <span>AI Operations Console</span>
-            </div>
-            <span className="px-1.5 py-0.2 bg-emerald-500 text-slate-950 font-black text-[9px] rounded font-bold uppercase select-none font-mono">Gemini</span>
-          </button>
-
-          <button 
-            onClick={() => handleTabChange("landing")}
-            className={`w-full text-left py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-              activeTab === "landing" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
-              <span>Landing Page CMS Editor</span>
-            </div>
-            <span className="font-mono text-[9px] px-1 bg-amber-50 text-amber-600 rounded font-bold">Marketing</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${tenantsLoading ? 'animate-spin' : ''}`} />
+            <span>Sync Core Dataset</span>
           </button>
         </div>
-
-        {/* Core details reload */}
-        <button
-          onClick={fetchHospitalTenants}
-          className="w-full py-1.5 border border-slate-150 hover:bg-slate-50 text-slate-600 text-xs rounded-xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${tenantsLoading ? 'animate-spin' : ''}`} />
-          <span>Reload Core Dataset</span>
-        </button>
-      </div>
-
-      {/* 2. Main Content Board */}
-      <div className="flex-1 space-y-6">
         
         {/* Diagnostic Logs Messages banners */}
         <AnimatePresence>
@@ -707,6 +575,240 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
             exit={{ opacity: 0, y: -1 }}
             transition={{ duration: 0.15 }}
           >
+            {/* TAB: CONTROL TOWER METRICS DASHBOARD */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-6">
+                {/* 1. Header Zone */}
+                <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-white relative overflow-hidden select-none">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded border border-indigo-400/20">SaaS Live System</span>
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[10px] uppercase font-mono text-slate-400">Stable Node</span>
+                      </div>
+                      <h2 className="text-xl font-black font-sans tracking-tight text-white mt-2">Control Tower Live Telemetry</h2>
+                      <p className="text-slate-400 text-xs mt-1 max-w-xl leading-relaxed">
+                        Master node dashboard aggregating isolated schemas, SaaS subscription billing status, clinical EHR scales, and HIPAA segregation rules.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="bg-slate-800 border border-slate-700 px-3.5 py-1.5 rounded-xl text-center">
+                        <div className="text-[8px] font-sans text-slate-400 uppercase font-bold">Edge Latency</div>
+                        <div className="text-xs font-mono font-bold text-emerald-400">{apiLatencyMs}ms Avg</div>
+                      </div>
+                      <div className="bg-slate-800 border border-slate-700 px-3.5 py-1.5 rounded-xl text-center">
+                        <div className="text-[8px] font-sans text-slate-400 uppercase font-bold">Database Isolations</div>
+                        <div className="text-xs font-mono font-bold text-indigo-405 text-indigo-300">100% HIPAA</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Unified KPI Bento Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* KPI 1: SaaS Financial Revenue */}
+                  <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-32">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Revenue Engine (MRR)</span>
+                        <div className="p-1 px-1.5 bg-emerald-50 text-emerald-700 text-[9px] font-bold rounded font-mono">
+                          +{Math.round((mrrValue / Math.max(1, mrrValue - 499)) * 10 - 10)}%
+                        </div>
+                      </div>
+                      <div className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">
+                        ${mrrValue.toLocaleString()} <span className="text-xs text-slate-400 font-normal">/mo</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-450 text-slate-400 border-t border-slate-100 pt-2 flex items-center justify-between">
+                      <span>Projected ARR Yield</span>
+                      <span className="font-mono font-bold text-slate-700">${(mrrValue * 12).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* KPI 2: Onboarded Clients */}
+                  <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-32">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Active Client Nodes</span>
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">{tenants.filter(t => t.isPaid).length} / {tenants.length} Paid</span>
+                      </div>
+                      <div className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">
+                        {tenants.length} <span className="text-xs text-slate-400 font-normal">Registered</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1 border-t border-slate-100 pt-2">
+                      <div className="flex justify-between text-[9px] font-semibold text-slate-500">
+                        <span>Paid Conversion Ratio</span>
+                        <span>{Math.round((tenants.filter(t => t.isPaid).length / Math.max(1, tenants.length)) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${(tenants.filter(t => t.isPaid).length / Math.max(1, tenants.length)) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* KPI 3: Global Aggregated Patients */}
+                  <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-32">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Cumulated EHR Volume</span>
+                        <span className="text-[8px] font-mono bg-indigo-50 text-indigo-600 px-1 py-0.2 rounded font-bold">Dynamic Scale</span>
+                      </div>
+                      <div className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">
+                        {tenantUsageStats.reduce((sum, item) => sum + item.registeredPatients, 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal">Records</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-450 text-slate-400 border-t border-slate-100 pt-2 flex items-center justify-between">
+                      <span>Avg Records per Clinic</span>
+                      <span className="font-mono font-bold text-slate-700">
+                        {Math.round(tenantUsageStats.reduce((sum, item) => sum + item.registeredPatients, 0) / Math.max(1, tenants.length))}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* KPI 4: Global System Workload */}
+                  <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-32">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">AI Gemini Workload</span>
+                        <span className="text-[8px] font-mono bg-emerald-50 text-emerald-600 px-1 py-0.2 rounded font-bold">Total Calls</span>
+                      </div>
+                      <div className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">
+                        {tenantUsageStats.reduce((sum, item) => sum + item.monthlyApiUse, 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal">Queries</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-450 text-slate-400 border-t border-slate-100 pt-2 flex items-center justify-between">
+                      <span>Active Capacity Meter</span>
+                      <span className="font-mono font-bold text-slate-700">
+                        {Math.round((tenantUsageStats.reduce((sum, item) => sum + item.monthlyApiUse, 0) / Math.max(1, tenantUsageStats.reduce((sum, item) => sum + item.quota.apiLimit, 0))) * 100)}% Used
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Interactive Visualizer Sandbox */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Visualizer Dashboard (2/3 scale) */}
+                  <div className="lg:col-span-2 bg-white border border-slate-150 rounded-2xl p-5 shadow-xs text-left flex flex-col space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">SaaS Client Comparative Visualization</h4>
+                        <p className="text-[10px] text-slate-400">Deep compare clinical volumes logged per tenant instance.</p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 p-1 rounded-xl flex gap-1 text-[9px] font-bold text-[#555]">
+                        <span className="px-2.5 py-1 bg-slate-900 text-white rounded-lg cursor-default shadow-xs font-mono">Dynamic Stacked Chart</span>
+                      </div>
+                    </div>
+
+                    <div className="h-64 pt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={usageChartData} margin={{ top: 10, right: 15, left: -25, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="shortName" stroke="#94a3b8" fontSize={9} />
+                          <YAxis stroke="#94a3b8" fontSize={9} />
+                          <Tooltip contentStyle={{ fontSize: "11px", fontFamily: "monospace", borderRadius: "12px", border: "1px solid #e2e8f0" }} />
+                          <Legend wrapperStyle={{ fontSize: "10px" }} />
+                          <Bar dataKey="RegisteredPatients" fill="#6366f1" radius={[3,3,0,0]} name="EHR Patients count" />
+                          <Bar dataKey="StaffSeats" fill="#10b981" radius={[3,3,0,0]} name="Staff Seats limit" />
+                          <Bar dataKey="ActiveBeds" fill="#f59e0b" radius={[3,3,0,0]} name="Beds occupancy" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between flex-wrap gap-2 text-[10px] text-slate-500 font-semibold leading-relaxed font-mono">
+                      <span>📌 PROVISIONING GUIDELINE:</span>
+                      <span className="text-[9px] font-normal text-slate-400">Individual parameters (Max Staff, Total Beds, and Gemini API queries limits) can be expanded dynamically per-client under the "Hospital Tenants" controller grid.</span>
+                    </div>
+                  </div>
+
+                  {/* Right Side: Tenant SLA and Quick Stats Panel */}
+                  <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-xs text-left flex flex-col justify-between gap-4">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">Active SLA Registry</h4>
+                        <p className="text-[10px] text-slate-405 text-slate-400">Clinical tenant network health status</p>
+                      </div>
+
+                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                        {tenants.map((t) => {
+                          const isPaid = t.isPaid;
+                          return (
+                            <div key={t.uid} className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl space-y-1 hover:border-slate-350 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-800 hover:text-indigo-650 truncate max-w-[130px] text-xs">{t.name}</span>
+                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-extrabold uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                                  {isPaid ? 'Enterprise' : 'Demo Mode'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center text-[9px] font-mono text-slate-400 font-semibold">
+                                <span>{t.customDomain || `${t.uid}.mediflow.io`}</span>
+                                <span className="text-indigo-600">{t.activeModules?.length || 0} Modules Activated</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                        <span>Cluster Core Version</span>
+                        <span className="font-mono text-slate-900 text-xs">v3.8.4 Enterprise</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-635 text-slate-600">
+                        <span>Ingress Endpoints Mapped</span>
+                        <span className="font-mono text-indigo-600">0.0.0.0:3000 ✔</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Active Edge Diagnosis & Trigger Panel */}
+                <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-xs text-left space-y-4">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">Edge Router Handshake Tester</h4>
+                      <p className="text-[10px] text-slate-400 font-normal">Check real-time network packets delivery and HIPAA isolation barriers across client nodes.</p>
+                    </div>
+                    <button
+                      onClick={triggerIngressRouterDiagnosticsPing}
+                      disabled={isPinging}
+                      className="px-3 py-1 bg-slate-950 hover:bg-slate-850 text-white font-semibold font-mono text-[9px] uppercase rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isPinging ? 'animate-spin' : ''}`} />
+                      <span>{isPinging ? "Re-testing Edge..." : "Execute Handshake Test"}</span>
+                    </button>
+                  </div>
+
+                  {pingLog.length > 0 ? (
+                    <div className="bg-slate-950 text-white rounded-xl p-4 border border-slate-900 font-mono text-[10.5px] leading-relaxed space-y-1">
+                      {pingLog.map((log, index) => (
+                        <div key={index} className="flex gap-2">
+                          <span className="text-slate-500 font-normal select-none">[{index+1}]</span>
+                          <span className={log.startsWith("✓") ? "text-emerald-400 font-bold" : ""}>{log}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-medium">
+                      Tap the "Execute Handshake Test" button above to dynamically ping ingress ports and output container isolation health parameters.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* TAB: HOSPITALS */}
             {activeTab === "hospitals" && (
               <div className="space-y-6">

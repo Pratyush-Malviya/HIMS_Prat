@@ -17,6 +17,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Clock,
   Menu,
   X,
@@ -26,7 +27,13 @@ import {
   Smartphone,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  BarChart2,
+  Building2,
+  Sliders,
+  UserCheck,
+  HelpCircle,
+  BrainCircuit
 } from "lucide-react";
 
 import { useHIMSStore } from "./useHIMSStore";
@@ -69,6 +76,7 @@ export default function App() {
   // Active viewMode ("saas" vs "app")
   const [viewMode, setViewMode] = useState<"saas" | "app">("saas");
   const [initialSignUp, setInitialSignUp] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Active primary tab and subtab
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -83,7 +91,8 @@ export default function App() {
     patient_care_group: true,
     medical_depts_group: true,
     finance_group: true,
-    admin_group: true
+    admin_group: true,
+    super_admin_group: true
   });
 
   // Selected Patient for global context routing
@@ -233,6 +242,14 @@ export default function App() {
     }
   }, [authenticatedUser, isTrialExpired]);
 
+  // Automatic routing guard to direct SaaS Super Admin away from clinical hospital dashboards
+  useEffect(() => {
+    if (authenticatedUser?.role === "Super Admin" && activeTab === "dashboard") {
+      setActiveTab("super_admin");
+      setActiveSubTab("dashboard");
+    }
+  }, [authenticatedUser, activeTab]);
+
   if (authChecking || loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white">
@@ -261,7 +278,8 @@ export default function App() {
               isPaid: true,
               paymentPlan: "SaaS Platform Owner"
             });
-            setActiveTab("dashboard");
+            setActiveTab("super_admin");
+            setActiveSubTab("dashboard");
           } else {
             setAuthenticatedUser({
               uid: "bypass-hospital-uid",
@@ -276,6 +294,7 @@ export default function App() {
               paymentPlan: "Enterprise EHR"
             });
             setActiveTab("dashboard");
+            setActiveSubTab("overview");
           }
           setViewMode("app");
         }} 
@@ -415,12 +434,17 @@ export default function App() {
           title: "SaaS Control Tower",
           icon: ShieldCheck,
           subItems: [
-            { id: "super_admin", subId: "hospitals", label: "SaaS Workspace Tenants", icon: Users, desc: "Manage SaaS Hospital tenants & plans" },
-            { id: "super_admin", subId: "usage", label: "Usage & Resource Limits", icon: Cpu, desc: "Monitor tenant API & Bed limits" },
-            { id: "super_admin", subId: "finance", label: "Subscription Revenues", icon: DollarSign, desc: "Track premium subscription metrics" },
-            { id: "super_admin", subId: "config", label: "Specialties Directory", icon: Settings, desc: "Global clinical specialty templates" },
+            { id: "super_admin", subId: "dashboard", label: "Control Tower Stats", icon: BarChart2, desc: "SaaS live metrics & telemetry" },
+            { id: "super_admin", subId: "hospitals", label: "Hospital Tenants", icon: Building2, desc: "Manage SaaS Hospital tenants & plans" },
+            { id: "super_admin", subId: "usage", label: "Usage & Limits", icon: Sliders, desc: "Monitor tenant API & Bed limits" },
+            { id: "super_admin", subId: "finance", label: "SaaS Pricing & Revenues", icon: DollarSign, desc: "Track premium subscription metrics" },
+            { id: "super_admin", subId: "config", label: "Global Specialties Preset", icon: Settings, desc: "Global clinical specialty templates" },
             { id: "super_admin", subId: "operations", label: "Router Ops Guard", icon: Activity, desc: "Ingress routing & server latencies" },
-            { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Quick edit of landing page CMS contents" }
+            { id: "super_admin", subId: "onboarding", label: "Onboarding Milestones", icon: UserCheck, desc: "Onboarding tracking checkpoints" },
+            { id: "super_admin", subId: "support", label: "Support Desk CRM", icon: HelpCircle, desc: "Track premium clinical inquiries" },
+            { id: "super_admin", subId: "security", label: "HIPAA Ledger & JIT", icon: Lock, desc: "Security and compliance trail log" },
+            { id: "super_admin", subId: "ai", label: "AI Operations Console", icon: BrainCircuit, desc: "Monitor AI integrations and quota" },
+            { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Real-time landing page customization" }
           ]
         }
       ]
@@ -444,101 +468,153 @@ export default function App() {
     <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-emerald-100 selection:text-emerald-950 text-slate-800">
       
       {/* 1. SIDEBAR COLUMN FOR DESKTOP */}
-      <aside className="hidden lg:flex flex-col w-76 bg-slate-900 text-white shrink-0 border-r border-slate-800 sticky top-0 h-screen select-none z-30">
+      <aside className={`hidden lg:flex flex-col transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? "w-20" : "w-76"
+      } bg-slate-900 text-white shrink-0 border-r border-slate-800 sticky top-0 h-screen select-none z-30`}>
         
         {/* Brand Banner */}
-        <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-500 text-slate-950 rounded-lg shadow-inner">
-            <Activity className="w-5 h-5 stroke-[2.5]" />
+        <div className={`p-4 border-b border-slate-800 flex items-center justify-between gap-3 ${
+          isSidebarCollapsed ? "flex-col py-5" : "p-5"
+        }`}>
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="p-2.5 bg-emerald-500 text-slate-950 rounded-lg shadow-inner shrink-0">
+              <Activity className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="truncate">
+                <span className="font-mono text-[9px] tracking-widest font-extrabold text-emerald-400 uppercase block leading-none">Clinical Suite</span>
+                <h1 className="text-sm font-bold font-sans tracking-tight text-white mt-0.5">AI-Powered HIMS</h1>
+              </div>
+            )}
           </div>
-          <div>
-            <span className="font-mono text-[9px] tracking-widest font-extrabold text-emerald-400 uppercase block leading-none">Clinical Suite</span>
-            <h1 className="text-sm font-bold font-sans tracking-tight text-white mt-0.5">AI-Powered HIMS</h1>
-          </div>
+
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         {/* Dynamic SaaS Mode Toggle Trigger */}
         {isSuperAdminAccount && (
-          <div className="p-4 bg-slate-950/40 border-b border-slate-800 text-left">
+          <div className={`p-4 bg-slate-950/40 border-b border-slate-800 text-left ${isSidebarCollapsed ? "flex justify-center p-3" : ""}`}>
             <button
               onClick={() => setViewMode("saas")}
-              className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/25 p-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+              className={`bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white border border-emerald-500/25 p-2 rounded-lg text-xs font-semibold flex items-center transition-all cursor-pointer ${
+                isSidebarCollapsed ? "p-2.5 justify-center" : "w-full px-3 justify-between"
+              }`}
               id="sidebar_btn_saas_tour"
+              title="SaaS Marketing Site"
             >
               <span className="flex items-center gap-1.5 shrink-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                SaaS Marketing Site
+                {!isSidebarCollapsed && <span>SaaS Marketing Site</span>}
               </span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              {!isSidebarCollapsed && <ArrowRight className="w-3.5 h-3.5" />}
             </button>
           </div>
         )}
 
         {/* Dynamic User Profile Context inside Sidebar */}
-        <div className="p-4 bg-slate-950/60 border-b border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono tracking-wider">
-            <span>SECURE WORKSTATION ID</span>
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl space-y-2.5">
-            <div className="space-y-1">
-              <div className="text-xs font-bold text-white truncate">{authenticatedUser.name}</div>
-              <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded bg-indigo-550/15 text-indigo-400 font-bold uppercase text-[8px]">
-                  {authenticatedUser.role}
-                </span>
-                <span className="truncate">{authenticatedUser.department}</span>
-              </div>
+        <div className={`bg-slate-950/60 border-b border-slate-800 space-y-2.5 ${isSidebarCollapsed ? "p-3 flex flex-col items-center" : "p-4"}`}>
+          {!isSidebarCollapsed && (
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono tracking-wider w-full">
+              <span>SECURE WORKSTATION ID</span>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
             </div>
+          )}
 
-            {/* Simulated 14-days Free Trial Tracking widget inside active Admin workspace */}
-            {authenticatedUser.isAdmin && (
-              <div className="pt-2 mt-2 border-t border-slate-800/80 text-[10px] space-y-1.5 text-left">
-                <div className="font-mono text-[9px] text-amber-400 font-semibold tracking-wider uppercase">
-                  {authenticatedUser.isPaid ? "🏆 SUBSCRIPTION: ACTIVE" : `⚡ 14-DAY FREE TRIAL`}
+          {isSidebarCollapsed ? (
+            <div className="flex flex-col gap-3 items-center w-full">
+              <div 
+                className="w-10 h-10 rounded-full bg-indigo-500/15 border border-indigo-500/35 text-indigo-400 flex items-center justify-center font-bold text-xs cursor-default hover:bg-slate-800 hover:text-white transition-all shadow-md relative group"
+                title={`${authenticatedUser.name} (${authenticatedUser.role}) - Workstation Active`}
+              >
+                {authenticatedUser.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-slate-900 bg-emerald-500"></span>
+              </div>
+
+              <button
+                onClick={async () => {
+                  const confirmed = window.confirm("Are you sure you want to revoke your session and log out?");
+                  if (!confirmed) return;
+                  await signOut(auth);
+                  setAuthenticatedUser(null);
+                  setViewMode("saas");
+                  setInitialSignUp(false);
+                }}
+                className="p-2 bg-slate-900 hover:bg-red-500/10 hover:text-red-400 border border-slate-850 hover:border-red-500/20 text-slate-405 text-slate-400 text-xs rounded-lg cursor-pointer transition-all"
+                title="Revoke Session (Logout)"
+              >
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl space-y-2.5 w-full">
+              <div className="space-y-1">
+                <div className="text-xs font-bold text-white truncate">{authenticatedUser.name}</div>
+                <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                  <span className="px-1.5 py-0.5 rounded bg-indigo-550/15 text-indigo-400 font-bold uppercase text-[8px]">
+                    {authenticatedUser.role}
+                  </span>
+                  <span className="truncate">{authenticatedUser.department}</span>
                 </div>
-                <div className="text-[10px] text-slate-300">
-                  {authenticatedUser.isPaid ? (
-                    <span>Plan: <strong className="text-emerald-400">{authenticatedUser.paymentPlan || "Enterprise EHR"}</strong></span>
-                  ) : (
-                    <span>Day <strong className="text-emerald-400">{elapsedDays + 1}</strong> of 14 remaining (<strong className="text-emerald-400">{daysRemaining} days left</strong>)</span>
+              </div>
+
+              {/* Simulated 14-days Free Trial Tracking widget inside active Admin workspace */}
+              {authenticatedUser.isAdmin && (
+                <div className="pt-2 mt-2 border-t border-slate-800/80 text-[10px] space-y-1.5 text-left">
+                  <div className="font-mono text-[9px] text-amber-400 font-semibold tracking-wider uppercase">
+                    {authenticatedUser.isPaid ? "🏆 SUBSCRIPTION: ACTIVE" : `⚡ 14-DAY FREE TRIAL`}
+                  </div>
+                  <div className="text-[10px] text-slate-300">
+                    {authenticatedUser.isPaid ? (
+                      <span>Plan: <strong className="text-emerald-400">{authenticatedUser.paymentPlan || "Enterprise EHR"}</strong></span>
+                    ) : (
+                      <span>Day <strong className="text-emerald-400">{elapsedDays + 1}</strong> of 14 remaining (<strong className="text-emerald-400">{daysRemaining} days left</strong>)</span>
+                    )}
+                  </div>
+                  {!authenticatedUser.isPaid && (
+                    <button
+                      onClick={handleSimulateTrialExpiration}
+                      className="w-full mt-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-[9px] font-bold rounded hover:shadow-md transition-all uppercase text-center cursor-pointer font-bold"
+                      title="Shifts creation timestamp 15 days into past to review automatic redirection & payment features."
+                    >
+                      ⏩ Fast-Forward 14 Days
+                    </button>
                   )}
                 </div>
-                {!authenticatedUser.isPaid && (
-                  <button
-                    onClick={handleSimulateTrialExpiration}
-                    className="w-full mt-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-[9px] font-bold rounded hover:shadow-md transition-all uppercase text-center"
-                    title="Shifts creation timestamp 15 days into past to review automatic redirection & payment features."
-                  >
-                    ⏩ Fast-Forward 14 Days
-                  </button>
-                )}
-              </div>
-            )}
+              )}
 
-            <button
-              onClick={async () => {
-                const confirmed = window.confirm("Are you sure you want to revoke your session and log out?");
-                if (!confirmed) return;
-                await signOut(auth);
-                setAuthenticatedUser(null);
-                setViewMode("saas");
-                setInitialSignUp(false);
-              }}
-              className="w-full text-center py-1.5 bg-slate-800 hover:bg-red-500/10 hover:text-red-400 border border-slate-800 hover:border-red-500/20 text-slate-400 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all"
-            >
-              REVOKE SESSION (LOGOUT)
-            </button>
-          </div>
+              <button
+                onClick={async () => {
+                  const confirmed = window.confirm("Are you sure you want to revoke your session and log out?");
+                  if (!confirmed) return;
+                  await signOut(auth);
+                  setAuthenticatedUser(null);
+                  setViewMode("saas");
+                  setInitialSignUp(false);
+                }}
+                className="w-full text-center py-1.5 bg-slate-800 hover:bg-red-500/10 hover:text-red-400 border border-slate-800 hover:border-red-500/20 text-slate-400 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all"
+              >
+                REVOKE SESSION (LOGOUT)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Grouped Sidebar Menus content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6" id="sidebar_main_menu">
-          {sidebarNavigation.map((group) => {
+        <div className={`flex-1 overflow-y-auto space-y-6 ${isSidebarCollapsed ? "p-3 py-4 flex flex-col items-center" : "p-4"}`} id="sidebar_main_menu">
+          {sidebarNavigation.map((group, groupIdx) => {
             const isGroupExpanded = expandedGroups[group.id];
             const GroupIcon = group.icon;
             
@@ -549,12 +625,58 @@ export default function App() {
               return { ...sub, isPermitted, isActive };
             });
 
+            if (isSidebarCollapsed) {
+              return (
+                <div key={group.id} className="space-y-2.5 flex flex-col items-center w-full">
+                  {groupIdx > 0 && <div className="w-8 h-px bg-slate-800/80 my-1 shrink-0" />}
+                  
+                  {parsedSubItems.map((sub) => {
+                    const SubIcon = sub.icon;
+                    return (
+                      <button
+                        key={sub.subId}
+                        onClick={() => selectSubMenu(sub.id, sub.subId)}
+                        className={`p-2.5 rounded-xl transition-all duration-300 relative group cursor-pointer flex items-center justify-center shrink-0 ${
+                          sub.isActive
+                            ? "bg-emerald-950/45 text-emerald-400 border border-emerald-500/25 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
+                            : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                        }`}
+                        id={`sidebar_btn_${sub.id}_${sub.subId}`}
+                      >
+                        <SubIcon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                          sub.isActive 
+                            ? "text-emerald-400 scale-105" 
+                            : (sub.isPermitted ? "text-slate-400 group-hover:text-slate-200" : "text-red-500/80")
+                        }`} />
+                        
+                        {/* High-end hovering visual tooltip popover */}
+                        <div className="absolute left-16 top-1/2 -translate-y-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 bg-slate-950 text-white text-[11px] px-3 py-2 rounded-xl whitespace-nowrap pointer-events-none transition-all duration-200 border border-slate-800 shadow-2xl z-50 text-left">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <span>{sub.label}</span>
+                            {!sub.isPermitted && <span className="text-[8px] bg-red-500/25 text-red-400 px-1.5 py-0.2 rounded font-mono font-bold tracking-wider">LOCKED</span>}
+                          </div>
+                          <span className="text-[9px] text-slate-400 font-normal block mt-0.5">{sub.desc}</span>
+                        </div>
+
+                        {/* Lock / Active indicators */}
+                        {!sub.isPermitted ? (
+                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900" />
+                        ) : sub.isActive ? (
+                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900 animate-pulse" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            }
+
             return (
               <div key={group.id} className="space-y-1">
                 {/* Header title click expands/collapses group */}
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-slate-200 uppercase font-mono tracking-wider py-2 px-2 rounded-lg hover:bg-slate-800/35 transition-all duration-300 ease-in-out select-none group"
+                  className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-slate-200 uppercase font-mono tracking-wider py-2 px-2 rounded-lg hover:bg-slate-800/35 transition-all duration-300 ease-in-out select-none group cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors duration-300" />
@@ -582,7 +704,7 @@ export default function App() {
                           <button
                             key={sub.subId}
                             onClick={() => selectSubMenu(sub.id, sub.subId)}
-                            className={`w-full text-left py-2 rounded-lg text-xs font-normal transition-all duration-350 ease-in-out flex items-center justify-between border-l-2 group ${
+                            className={`w-full text-left py-2 rounded-lg text-xs font-normal transition-all duration-350 ease-in-out flex items-center justify-between border-l-2 group cursor-pointer ${
                               sub.isActive
                                 ? "bg-emerald-950/45 text-emerald-400 border-l-emerald-500 border-y border-y-emerald-500/20 border-r border-r-emerald-500/20 pl-3.5 pr-2.5 font-semibold shadow-[0_0_8px_rgba(16,185,129,0.06)]"
                                 : "text-slate-350 hover:text-white border-l-transparent border-y border-y-transparent border-r border-r-transparent hover:border-l-emerald-500/35 hover:bg-slate-800/45 hover:pl-3.5 pl-2.5 pr-2.5"
@@ -621,16 +743,18 @@ export default function App() {
         </div>
 
         {/* Sticky footer telemetry status display inside Left Sidebar */}
-        <div className="p-4 bg-slate-950 text-slate-400 border-t border-slate-800 text-[10px] font-mono space-y-1 select-none">
-          <div className="flex justify-between">
-            <span>SYSTEM CONTEXT:</span>
-            <span className="text-emerald-400 font-bold uppercase">SECURE</span>
+        {!isSidebarCollapsed && (
+          <div className="p-4 bg-slate-950 text-slate-400 border-t border-slate-800 text-[10px] font-mono space-y-1 select-none shrink-0">
+            <div className="flex justify-between">
+              <span>SYSTEM CONTEXT:</span>
+              <span className="text-emerald-400 font-bold uppercase">SECURE</span>
+            </div>
+            <div className="flex justify-between">
+              <span>COMPLIANCE INDEX:</span>
+              <span className="text-amber-400">HIPAA APPROVED</span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span>COMPLIANCE INDEX:</span>
-            <span className="text-amber-400">HIPAA APPROVED</span>
-          </div>
-        </div>
+        )}
       </aside>
 
       {/* 2. MOBILE HEADER & DRAWER SIDEBAR */}
@@ -946,7 +1070,12 @@ export default function App() {
                       <FinanceBillingModule store={store} />
                     )}
                     {activeTab === "super_admin" && (
-                      <SuperAdminModule store={store} currentUser={currentUser} />
+                      <SuperAdminModule 
+                        store={store} 
+                        currentUser={currentUser} 
+                        activeSubTab={activeSubTab}
+                        setActiveSubTab={setActiveSubTab}
+                      />
                     )}
                     {activeTab === "admin" && (
                       <AdminModule 
