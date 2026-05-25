@@ -33,7 +33,8 @@ import {
   Sliders,
   UserCheck,
   HelpCircle,
-  BrainCircuit
+  BrainCircuit,
+  FileText
 } from "lucide-react";
 
 import { useHIMSStore } from "./useHIMSStore";
@@ -444,7 +445,8 @@ export default function App() {
             { id: "super_admin", subId: "support", label: "Support Desk CRM", icon: HelpCircle, desc: "Track premium clinical inquiries" },
             { id: "super_admin", subId: "security", label: "HIPAA Ledger & JIT", icon: Lock, desc: "Security and compliance trail log" },
             { id: "super_admin", subId: "ai", label: "AI Operations Console", icon: BrainCircuit, desc: "Monitor AI integrations and quota" },
-            { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Real-time landing page customization" }
+            { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Real-time landing page customization" },
+            { id: "super_admin", subId: "specs", label: "Specs & GTM Library", icon: FileText, desc: "View & search product specification docs" }
           ]
         }
       ]

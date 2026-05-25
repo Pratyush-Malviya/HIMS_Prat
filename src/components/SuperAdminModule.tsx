@@ -64,6 +64,7 @@ import { SuperAdminSupport } from "./SuperAdminSupport";
 import { SuperAdminAI } from "./SuperAdminAI";
 import { SuperAdminSecurity } from "./SuperAdminSecurity";
 import { SuperAdminConfig } from "./SuperAdminConfig";
+import { SuperAdminSpecs } from "./SuperAdminSpecs";
 
 interface SuperAdminModuleProps {
   store: HIMSStore;
@@ -81,11 +82,11 @@ interface TenantQuota {
 
 export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSubTab }: SuperAdminModuleProps) {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing"
+    "dashboard" | "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing" | "specs"
   >("dashboard");
 
   useEffect(() => {
-    if (activeSubTab && ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing"].includes(activeSubTab)) {
+    if (activeSubTab && ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing", "specs"].includes(activeSubTab)) {
       setActiveTab(activeSubTab as any);
     }
   }, [activeSubTab]);
@@ -1341,6 +1342,11 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* TAB: SPECIFICATIONS LIBRARY */}
+            {activeTab === "specs" && (
+              <SuperAdminSpecs />
             )}
 
           </motion.div>
