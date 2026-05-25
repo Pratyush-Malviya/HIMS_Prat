@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -357,6 +356,8 @@ app.get("/api/health", (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    // Dynamic import to prevent Node CommonJS loader from importing ESM-only 'vite' in production
+    const { createServer: createViteServer } = await import("vite");
     // Development Mode with Vite Middleware
     const vite = await createViteServer({
       server: { middlewareMode: true },

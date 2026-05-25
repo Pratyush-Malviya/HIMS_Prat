@@ -713,7 +713,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
                     </div>
 
                     <div className="h-64 pt-2">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={usageChartData} margin={{ top: 10, right: 15, left: -25, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="shortName" stroke="#94a3b8" fontSize={9} />
@@ -871,7 +871,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
                       <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider font-extrabold pb-3 select-none">Comparing Active Workspace Volumes:</div>
                       
                       <div className="h-60">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                           <BarChart data={usageChartData} margin={{ top: 10, right: 15, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                             <XAxis dataKey="shortName" stroke="#94a3b8" fontSize={9} />
@@ -1006,7 +1006,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
                     </div>
 
                     <div className="h-60">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart data={saasRevenueTrendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                           <defs>
                             <linearGradient id="mrrCol" x1="0" y1="0" x2="0" y2="1">
@@ -1032,7 +1032,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
                     </div>
 
                     <div className="h-40 flex items-center justify-center gap-2">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <PieChart>
                           <Pie
                             data={pieData}

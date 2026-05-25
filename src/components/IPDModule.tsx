@@ -643,7 +643,7 @@ Use professional markdown tables or checklists. Keep the output clinical, struct
                     {selectedAdmission.vitalsHistory.length > 0 && (
                       <div className="bg-slate-50/70 p-3 border border-slate-100 rounded-xl">
                         <div className="h-44 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <LineChart 
                               data={[...selectedAdmission.vitalsHistory].reverse().map((vt) => {
                                 const bpParts = (vt.bloodPressure || "120/80").split("/");

@@ -1661,7 +1661,7 @@ export function Dashboard({ store, setActiveTab, setSelectedPatientId, activeSub
             </div>
 
             <div className="h-56 bg-slate-950 border border-slate-900 rounded-xl p-4 shadow-sm relative">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <LineChart data={revenueTrendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 
