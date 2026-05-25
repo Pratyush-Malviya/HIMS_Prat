@@ -23,7 +23,7 @@ export function AIChatBot({ store }: AIChatBotProps) {
     {
       id: "init-msg",
       sender: "bot",
-      text: "Hello! I am Alex, your clinical intelligence co-pilot. I am fed with real-time patient charts, ICU bed densities, and pharmacy stock status. How may I assist you with clinical, drug safety, or operational inquiries today?",
+      text: "Hi there! I'm Alex, your hospital co-pilot. I've got real-time eyes on patient charts, ward bed densities, and pharmacy stock levels. Let me know what you need help with—whether it's checking drug interactions, scanning ward bed anomalies, or getting quick operational figures!",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);

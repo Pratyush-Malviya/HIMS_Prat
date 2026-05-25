@@ -15,79 +15,15 @@ import {
   AlertCircle
 } from "lucide-react";
 import { HospitalTenant } from "./SuperAdminHospitals";
+import { HIMSStore, SupportTicket } from "../types";
 
 interface SuperAdminSupportProps {
   tenants: HospitalTenant[];
+  store: HIMSStore;
 }
 
-interface SupportTicket {
-  id: string;
-  tenantName: string;
-  category: "Billing" | "LIS Connection" | "HIPAA Compliance" | "EMR Crash" | "Access Key Issues";
-  subject: string;
-  status: "Open" | "Assigned" | "Resolving" | "Closed";
-  priority: "High" | "Medium" | "Urgent";
-  assignedEngineer: string;
-  slaMinutesRemaining: number;
-  message: string;
-  createdTime: string;
-  csatScore?: number;
-}
-
-const INITIAL_SUPPORT_TICKETS: SupportTicket[] = [
-  {
-    id: "TKT-3091",
-    tenantName: "Metro General Hospital Corp",
-    category: "LIS Connection",
-    subject: "Blood analyzer machine serial sync packet loss",
-    status: "Open",
-    priority: "Urgent",
-    assignedEngineer: "Alex Thompson (AI Agent)",
-    slaMinutesRemaining: 12,
-    message: "The Sysmex pathology machine fails to transmit automated CBC outcomes to OPD patient directories. Packets drop at egress point.",
-    createdTime: "2026-05-23T11:40:00Z"
-  },
-  {
-    id: "TKT-1082",
-    tenantName: "Lotus Kids & Pediatric Clinic",
-    category: "Billing",
-    subject: "Insurance pre-auth document rejection payload mismatched",
-    status: "Assigned",
-    priority: "High",
-    assignedEngineer: "Sarah Jenkins",
-    slaMinutesRemaining: 45,
-    message: "HDFC TPA integration returns empty response when validating pediatric orthopedic bundle rates under standard plan presets.",
-    createdTime: "2026-05-23T12:15:00Z"
-  },
-  {
-    id: "TKT-4401",
-    tenantName: "MaxCare Specialty & Cardiac Unit",
-    category: "Access Key Issues",
-    subject: "Admitting physician proxy access expired early",
-    status: "Resolving",
-    priority: "Medium",
-    assignedEngineer: "Priya Nair",
-    slaMinutesRemaining: 180,
-    message: "Chief cardiologist's proxy credential keys deactivated 4 hours before the shift roster ended. Needs security override.",
-    createdTime: "2026-05-23T09:00:00Z"
-  },
-  {
-    id: "TKT-9912",
-    tenantName: "National Health Base Foundation",
-    category: "HIPAA Compliance",
-    subject: "Audit logs export failing under custom format rules",
-    status: "Closed",
-    priority: "Medium",
-    assignedEngineer: "Sarah Jenkins",
-    slaMinutesRemaining: 0,
-    message: "Requesting a clean CSV output in compliance with HIPAA Business Associate review guidelines.",
-    createdTime: "2026-05-22T14:30:00Z",
-    csatScore: 5
-  }
-];
-
-export function SuperAdminSupport({ tenants }: SuperAdminSupportProps) {
-  const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_SUPPORT_TICKETS);
+export function SuperAdminSupport({ tenants, store }: SuperAdminSupportProps) {
+  const tickets = store.supportTickets;
   const [selectedTicketId, setSelectedTicketId] = useState<string>("TKT-3091");
   const [replyMessage, setReplyMessage] = useState("");
   const [engineerFilter, setEngineerFilter] = useState("All");
@@ -99,7 +35,6 @@ export function SuperAdminSupport({ tenants }: SuperAdminSupportProps) {
   const selectTicket = useMemo(() => {
     const t = tickets.find(x => x.id === selectedTicketId);
     if (t) {
-      // populate forms
       return t;
     }
     return tickets[0];
@@ -121,34 +56,31 @@ export function SuperAdminSupport({ tenants }: SuperAdminSupportProps) {
     e.preventDefault();
     if (!selectTicket) return;
 
-    setTickets(prev => prev.map(t => {
-      if (t.id === selectTicket.id) {
-        return {
-          ...t,
-          status: tStatus,
-          priority: tPriority,
-          assignedEngineer: tEngineer
-        };
-      }
-      return t;
-    }));
+    store.updateSupportTicket(selectTicket.id, {
+      status: tStatus,
+      priority: tPriority,
+      assignedEngineer: tEngineer
+    });
+
+    if (replyMessage.trim()) {
+      store.createLog(
+        "SaaS Super Admin",
+        "Support Engineer",
+        "Ticket Response Audit",
+        "Support Desk System",
+        `Replied to ticket ${selectTicket.id}: "${replyMessage}"`
+      );
+    }
 
     setReplyMessage("");
-    // alert status updated
   };
 
   const handleResolveTicketDirect = (id: string) => {
-    setTickets(prev => prev.map(t => {
-      if (t.id === id) {
-        return {
-          ...t,
-          status: "Closed",
-          csatScore: 5,
-          slaMinutesRemaining: 0
-        };
-      }
-      return t;
-    }));
+    store.updateSupportTicket(id, {
+      status: "Closed",
+      csatScore: 5,
+      slaMinutesRemaining: 0
+    });
   };
 
   return (

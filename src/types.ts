@@ -74,6 +74,11 @@ export interface Medicine {
   unitPrice: number;
   expiryDate: string;
   location: string; // Pharmacy shelf e.g. "A1-Shelf 3"
+  category?: string;
+  sku?: string;
+  supplier?: string;
+  costPrice?: number;
+  manufacturer?: string;
 }
 
 export interface Bed {
@@ -154,6 +159,7 @@ export interface Employee {
   attendanceStatus: "On-Duty" | "Off-Duty" | "On-Leave";
   commissionPct?: number;
   permittedModules: string[]; // e.g. ["dashboard", "opd", "ipd", "labs", "pharmacy", "finance", "admin", "hr"]
+  isOnCall?: boolean;
 }
 
 export interface CustomRole {
@@ -200,6 +206,33 @@ export interface FeatureModule {
   points: string[];
 }
 
+export interface SupportTicket {
+  id: string;
+  tenantName: string;
+  category: "Billing" | "LIS Connection" | "HIPAA Compliance" | "EMR Crash" | "Access Key Issues" | "General Bug" | "Service Offline";
+  subject: string;
+  status: "Open" | "Assigned" | "Resolving" | "Closed";
+  priority: "High" | "Medium" | "Urgent" | "Low";
+  assignedEngineer: string;
+  slaMinutesRemaining: number;
+  message: string;
+  createdTime: string;
+  csatScore?: number;
+  employeeName?: string;
+  employeeEmail?: string;
+}
+
+export interface SuperAdminEmployee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  permittedModules: string[];
+  createdAt: string;
+  active: boolean;
+}
+
 export interface LandingPageConfig {
   fontFamily: "Inter" | "Space Grotesk" | "Playfair Display" | "JetBrains Mono";
   primaryColor: "emerald" | "indigo" | "teal" | "sky" | "blue" | "violet" | "rose";
@@ -231,13 +264,23 @@ export interface HIMSStore {
   customRoles: CustomRole[];
   landingPageConfig: LandingPageConfig;
   hospitalProfile: HospitalProfile;
+  supportTickets: SupportTicket[];
+  superAdminEmployees: SuperAdminEmployee[];
   updateHospitalProfile: (profile: Partial<HospitalProfile>) => void;
   markNotificationAsRead: (id: string) => void;
   clearNotifications: () => void;
   onboardEmployee: (emp: Employee) => void;
   updateEmployeePermissions: (id: string, permittedModules: string[]) => void;
   removeEmployee: (id: string) => void;
+  toggleEmployeeOnCall: (id: string) => void;
   addCustomRole: (role: CustomRole) => void;
   removeCustomRole: (id: string) => void;
   updateLandingPageConfig: (config: Partial<LandingPageConfig>) => void;
+  raiseSupportTicket: (ticket: Omit<SupportTicket, "id" | "createdTime" | "status" | "assignedEngineer" | "slaMinutesRemaining">) => SupportTicket;
+  updateSupportTicket: (id: string, updates: Partial<SupportTicket>) => void;
+  addSuperAdminEmployee: (emp: SuperAdminEmployee) => void;
+  removeSuperAdminEmployee: (id: string) => void;
+  updateSuperAdminEmployeePermissions: (id: string, permittedModules: string[]) => void;
+  createLog: (user: string, role: string, action: string, dept: string, details: string) => AuditLog;
+  importBulkData: (type: "patients" | "medicines" | "billing", data: any[]) => void;
 }

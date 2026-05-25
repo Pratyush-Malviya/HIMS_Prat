@@ -360,7 +360,8 @@ export default function App() {
       icon: Activity,
       subItems: [
         { id: "dashboard", subId: "overview", label: "Operations Overview", icon: Activity, desc: "Main metrics dashboard" },
-        { id: "dashboard", subId: "vitals", label: "Live Telemetry Feed", icon: Heart, desc: "Vital sign anomaly logs" }
+        { id: "dashboard", subId: "vitals", label: "Live Telemetry Feed", icon: Heart, desc: "Vital sign anomaly logs" },
+        { id: "dashboard", subId: "support", label: "Staff Support Desk", icon: HelpCircle, desc: "Submit tickets and check resolutions" }
       ]
     },
     {
@@ -411,7 +412,8 @@ export default function App() {
         { id: "admin", subId: "roles", label: "Staff Access & Roles", icon: ShieldCheck, desc: "Control permissions and screen access" },
         { id: "admin", subId: "logs", label: "Security & Action History", icon: FileSpreadsheet, desc: "Automatic history log of all activity" },
         { id: "admin", subId: "diagnostics", label: "Settings & Cloud Sync", icon: Cpu, desc: "Sync data to cloud & configure preferences" },
-        { id: "admin", subId: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage your simple website styles and texts" }
+        { id: "admin", subId: "landing", label: "Landing Page Editor (CMS)", icon: Sparkles, desc: "Manage your simple website styles and texts" },
+        { id: "admin", subId: "support", label: "Help & Support Tickets", icon: HelpCircle, desc: "Raise tickets and request system support" }
       ]
     }
   ];
@@ -443,6 +445,7 @@ export default function App() {
             { id: "super_admin", subId: "operations", label: "Router Ops Guard", icon: Activity, desc: "Ingress routing & server latencies" },
             { id: "super_admin", subId: "onboarding", label: "Onboarding Milestones", icon: UserCheck, desc: "Onboarding tracking checkpoints" },
             { id: "super_admin", subId: "support", label: "Support Desk CRM", icon: HelpCircle, desc: "Track premium clinical inquiries" },
+            { id: "super_admin", subId: "staff", label: "Super Admin Staff", icon: Users, desc: "Onboard staff & assign RBAC rules" },
             { id: "super_admin", subId: "security", label: "HIPAA Ledger & JIT", icon: Lock, desc: "Security and compliance trail log" },
             { id: "super_admin", subId: "ai", label: "AI Operations Console", icon: BrainCircuit, desc: "Monitor AI integrations and quota" },
             { id: "super_admin", subId: "landing", label: "Landing Page CMS Editor", icon: Sparkles, desc: "Real-time landing page customization" },
@@ -1051,7 +1054,7 @@ export default function App() {
                 ) : (
                   <>
                     {activeTab === "dashboard" && (
-                      <Dashboard store={store} setActiveTab={setActiveTab} setSelectedPatientId={setSelectedPatientId} activeSubTab={activeSubTab} />
+                      <Dashboard store={store} setActiveTab={setActiveTab} setSelectedPatientId={setSelectedPatientId} activeSubTab={activeSubTab} currentUser={currentUser} />
                     )}
                     {activeTab === "opd" && (
                       <OPDModule store={store} selectedPatientId={selectedPatientId} setSelectedPatientId={setSelectedPatientId} />

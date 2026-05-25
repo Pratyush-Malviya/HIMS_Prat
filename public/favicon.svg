@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2050/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Rounded Rect container with modern look -->
+  <rect width="32" height="32" rx="8" fill="#0f172a" />
+  
+  <!-- Hospital Cross + Pulse waves in pure emerald clinical green -->
+  <path d="M7 16h4.5l1.5-5 2 10 1.5-7 1.5 2H25" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M16 9v3M16 20v3" stroke="#10b981" stroke-width="2" stroke-linecap="round" />
+</svg>

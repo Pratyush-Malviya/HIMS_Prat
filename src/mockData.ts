@@ -264,12 +264,14 @@ export const initialLabTests: LabTest[] = [
 ];
 
 export const initialMedicines: Medicine[] = [
-  { id: "med-1", name: "Amlodipine", dosageForm: "Tablet", strength: "5mg", stockCount: 1200, safetyStock: 200, unitPrice: 3.5, expiryDate: "2028-09-30", location: "Shelf A-1" },
-  { id: "med-2", name: "Metformin", dosageForm: "Tablet", strength: "500mg", stockCount: 2500, safetyStock: 300, unitPrice: 2.1, expiryDate: "2027-12-15", location: "Shelf B-3" },
-  { id: "med-3", name: "Amoxicillin", dosageForm: "Capsule", strength: "500mg", stockCount: 85, safetyStock: 150, unitPrice: 8.0, expiryDate: "2026-11-20", location: "Shelf C-1" }, // Low Stock!
-  { id: "med-4", name: "Atorvastatin", dosageForm: "Tablet", strength: "20mg", stockCount: 1400, safetyStock: 250, unitPrice: 4.8, expiryDate: "2028-03-22", location: "Shelf A-4" },
-  { id: "med-5", name: "Salbutamol Inhaler", dosageForm: "Inhaler", strength: "100mcg", stockCount: 22, safetyStock: 50, unitPrice: 15.0, expiryDate: "2027-08-10", location: "Inhalers Drawer" }, // Low Stock!
-  { id: "med-6", name: "Insulin Glargine Pen", dosageForm: "Injection", strength: "100 U/mL", stockCount: 45, safetyStock: 10, unitPrice: 38.0, expiryDate: "2026-10-05", location: "Fridge Row #2" }
+  { id: "med-1", name: "Amlodipine", dosageForm: "Tablet", strength: "5mg", stockCount: 1200, safetyStock: 200, unitPrice: 3.5, expiryDate: "2028-09-30", location: "Shelf A-1", category: "Cardiology", sku: "RX-AML-005", supplier: "Global Pharma Corp", costPrice: 1.20, manufacturer: "Pfizer" },
+  { id: "med-2", name: "Metformin", dosageForm: "Tablet", strength: "500mg", stockCount: 2500, safetyStock: 300, unitPrice: 2.1, expiryDate: "2027-12-15", location: "Shelf B-3", category: "Endocrinology", sku: "RX-MET-500", supplier: "MediSource Distribution", costPrice: 0.70, manufacturer: "Sandoz" },
+  { id: "med-3", name: "Amoxicillin", dosageForm: "Capsule", strength: "500mg", stockCount: 85, safetyStock: 150, unitPrice: 8.0, expiryDate: "2026-11-20", location: "Shelf C-1", category: "Anti-Infective", sku: "RX-AMX-500", supplier: "Apex Biologicals", costPrice: 3.10, manufacturer: "Teva" }, // Low Stock!
+  { id: "med-4", name: "Atorvastatin", dosageForm: "Tablet", strength: "20mg", stockCount: 1400, safetyStock: 250, unitPrice: 4.8, expiryDate: "2028-03-22", location: "Shelf A-4", category: "Cardiology", sku: "RX-ATR-020", supplier: "Global Pharma Corp", costPrice: 1.80, manufacturer: "Merck" },
+  { id: "med-5", name: "Salbutamol Inhaler", dosageForm: "Inhaler", strength: "100mcg", stockCount: 22, safetyStock: 50, unitPrice: 15.0, expiryDate: "2027-08-10", location: "Inhalers Drawer", category: "Respiratory", sku: "RX-SAL-100", supplier: "Oceanic Med Supply", costPrice: 6.50, manufacturer: "GlaxoSmithKline" }, // Low Stock!
+  { id: "med-6", name: "Insulin Glargine Pen", dosageForm: "Injection", strength: "100 U/mL", stockCount: 45, safetyStock: 10, unitPrice: 38.0, expiryDate: "2026-10-05", location: "Fridge Row #2", category: "Endocrinology", sku: "RX-INS-100", supplier: "MediSource Distribution", costPrice: 19.50, manufacturer: "Sanofi" },
+  { id: "med-7", name: "Clarithromycin", dosageForm: "Tablet", strength: "250mg", stockCount: 300, safetyStock: 100, unitPrice: 12.0, expiryDate: "2026-06-10", location: "Shelf C-2", category: "Anti-Infective", sku: "RX-CLA-250", supplier: "Apex Biologicals", costPrice: 4.00, manufacturer: "Abbott" }, // Expiring soon
+  { id: "med-8", name: "Erythromycin", dosageForm: "Tablet", strength: "5000mg", stockCount: 150, safetyStock: 50, unitPrice: 9.5, expiryDate: "2026-05-10", location: "Shelf C-3", category: "Anti-Infective", sku: "RX-ERY-500", supplier: "Apex Biologicals", costPrice: 3.20, manufacturer: "Abbott" } // Already expired
 ];
 
 export const initialBillingInvoices: BillingInvoice[] = [

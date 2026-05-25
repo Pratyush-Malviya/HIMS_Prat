@@ -35,7 +35,8 @@ import {
   Loader2,
   Receipt,
   X,
-  Building2
+  Building2,
+  HelpCircle
 } from "lucide-react";
 import { HIMSStore } from "../useHIMSStore";
 import { getSecondaryAuth, db, handleFirestoreError, OperationType } from "../firebase";
@@ -3196,6 +3197,231 @@ export function AdminModule({
 
           </div>
 
+        </div>
+      )}
+
+      {activeSubTab === "support" && (
+        <div className="space-y-6 animate-fadeIn text-left">
+          {/* Support Greeting & SLA Stat Header */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+            <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute left-1/3 bottom-0 translate-y-16 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl"></div>
+            
+            <div className="relative z-10 max-w-2xl space-y-2">
+              <span className="py-1 px-3 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold font-mono tracking-wider uppercase rounded-full border border-emerald-500/10 inline-block">
+                ★ Platinum SLA Partner
+              </span>
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">Hospital Support Desk & CRM Connection</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Connect directly to our SaaS platform's premium engineering operations. Raise tickets for EMR outages, LIS packet integration issues, HIPAA ledger audits, or custom billing calibrations.
+              </p>
+            </div>
+          </div>
+
+          {/* Core Support Workspace Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Left side: Raised tickets summary + list (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800 font-sans">Your Submitted Tickets</h3>
+                    <p className="text-[10px] text-slate-400 font-mono">Track response SLAs, assigned staff, and current resolution progress.</p>
+                  </div>
+                  
+                  {/* Stats Count badge */}
+                  <div className="flex gap-2">
+                    <span className="py-1 px-2.5 bg-indigo-50 text-indigo-700 text-[10px] font-mono font-bold rounded-lg border border-indigo-100">
+                      Total: {store.supportTickets.filter(t => t.tenantName === store.hospitalProfile.name || t.tenantName.includes("Metro") || t.tenantName.includes("Lotus") || t.tenantName.includes("MaxCare")).length}
+                    </span>
+                    <span className="py-1 px-2.5 bg-rose-50 text-rose-700 text-[10px] font-mono font-bold rounded-lg border border-rose-100">
+                      Open: {store.supportTickets.filter(t => (t.tenantName === store.hospitalProfile.name || t.tenantName.includes("Metro") || t.tenantName.includes("Lotus") || t.tenantName.includes("MaxCare")) && t.status !== "Closed").length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ticket Items Loop */}
+                <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                  {store.supportTickets
+                    .filter(t => t.tenantName === store.hospitalProfile.name || t.tenantName.includes("Metro") || t.tenantName.includes("Lotus") || t.tenantName.includes("MaxCare") || t.tenantName.includes("National"))
+                    .map((t) => {
+                      const priorityColors: Record<string, string> = {
+                        Urgent: "bg-rose-50 text-rose-700 border-rose-200",
+                        High: "bg-amber-50 text-amber-700 border-amber-200",
+                        Medium: "bg-slate-50 text-slate-700 border-slate-200",
+                        Low: "bg-slate-50 text-slate-400 border-slate-100"
+                      };
+                      const statusColors: Record<string, string> = {
+                        Open: "bg-blue-50 text-blue-700 border-blue-200",
+                        Assigned: "bg-indigo-50 text-indigo-700 border-indigo-200",
+                        Resolving: "bg-yellow-50 text-yellow-800 border-yellow-200",
+                        Closed: "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      };
+
+                      return (
+                        <div 
+                          key={t.id}
+                          className="p-4 bg-slate-50/45 hover:bg-slate-50 rounded-xl border border-slate-100 shadow-2xs transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-3"
+                        >
+                          <div className="space-y-1.5 flex-1 text-left">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 animate-pulse">
+                                {t.id}
+                              </span>
+                              <span className={`text-[9px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border ${priorityColors[t.priority] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                                {t.priority}
+                              </span>
+                              <span className={`text-[9px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border ${statusColors[t.status] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                                {t.status}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Raised: {new Date(t.createdTime).toLocaleDateString()}
+                              </span>
+                            </div>
+                            
+                            <h4 className="text-xs font-bold text-slate-800 leading-snug">{t.subject}</h4>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              {t.message}
+                            </p>
+                            
+                            {/* Operator Badge */}
+                            {t.assignedEngineer && (
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                                <span>Assigned Operator:</span>
+                                <span className="font-semibold text-slate-600">{t.assignedEngineer}</span>
+                                {t.slaMinutesRemaining > 0 && (
+                                  <span className="text-amber-600 ml-1.5 font-bold">⏱ Response SLA &lt; {t.slaMinutesRemaining} min</span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* CSAT Selector for Closed Tickets */}
+                            {t.status === "Closed" && (
+                              <div className="mt-2 flex items-center gap-2 pt-1 border-t border-slate-100">
+                                <span className="text-[10px] font-mono text-slate-400">Rate our resolution:</span>
+                                <div className="flex gap-1">
+                                  {[1, 2, 3, 4, 5].map((stars) => (
+                                    <button
+                                      key={stars}
+                                      onClick={() => store.updateSupportTicket(t.id, { csatScore: stars })}
+                                      className="cursor-pointer transition-transform hover:scale-110"
+                                      title={`Rate ${stars} Stars`}
+                                    >
+                                      <Sparkles className={`w-3.5 h-3.5 ${t.csatScore && t.csatScore >= stars ? "text-amber-500 fill-amber-400" : "text-slate-350 text-slate-300"}`} />
+                                    </button>
+                                  ))}
+                                </div>
+                                {t.csatScore && (
+                                  <span className="text-[10px] text-emerald-600 font-bold font-mono">({t.csatScore}/5 Rating Saved!)</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right side: New ticket Form (5 cols) */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-xs space-y-4 text-left">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 font-sans">Raise Custom Support Ticket</h3>
+                  <p className="text-[10px] text-slate-400 leading-normal font-mono">Submit details directly to SaaS Support Lead Vikram Malhotra or Sarah Jenkins.</p>
+                </div>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const cat = (form.elements.namedItem("category") as HTMLSelectElement).value as any;
+                    const subVal = (form.elements.namedItem("subject") as HTMLInputElement).value;
+                    const priVal = (form.elements.namedItem("priority") as HTMLSelectElement).value as any;
+                    const msgVal = (form.elements.namedItem("message") as HTMLTextAreaElement).value;
+
+                    if (!subVal || !msgVal) {
+                      alert("Please specify a subject and a diagnostic description before submitting.");
+                      return;
+                    }
+
+                    store.raiseSupportTicket({
+                      tenantName: store.hospitalProfile.name || "Metro General Hospital Corp",
+                      category: cat,
+                      subject: subVal,
+                      priority: priVal,
+                      message: msgVal,
+                      employeeName: currentUser?.name || "Dr. Amanda Mercer",
+                      employeeEmail: store.hospitalProfile.email || "admin@hospital.com"
+                    });
+
+                    form.reset();
+                    alert("Ticket successfully submitted onto SaaS Ingress Desk queue. The SLA period has started.");
+                  }}
+                  className="space-y-3.5"
+                >
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Category</label>
+                    <select
+                      name="category"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white text-slate-700 font-medium"
+                    >
+                      <option value="Billing">Billing (Plan & SaaS Subscriptions)</option>
+                      <option value="LIS Connection">LIS Connection (Pathology & CBC Machine Serial Sync)</option>
+                      <option value="HIPAA Compliance">HIPAA Compliance (Business Associate Audit log request)</option>
+                      <option value="EMR Crash">EMR Crash (Database locks or offline issues)</option>
+                      <option value="Access Key Issues">Access Key Issues (Physician proxy credentials de-sync)</option>
+                      <option value="General Bug">General Bug (UI layout flickering or prescription typography)</option>
+                      <option value="Service Offline">Service Offline (Cloud sync timeout warnings)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Subject</label>
+                    <input
+                      type="text"
+                      name="subject"
+                      placeholder="e.g. Inpatient Ward Bed Allocation grid not loading on Chrome v104"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white text-slate-850 text-slate-800"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Impact & Priority</label>
+                    <select
+                      name="priority"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white text-slate-700 font-medium"
+                    >
+                      <option value="Medium">Medium (General Operational Inconvenience)</option>
+                      <option value="Low">Low (Simple UI/Aesthetic suggestion)</option>
+                      <option value="High">High (Impacting Clinical Workflows)</option>
+                      <option value="Urgent">Urgent (Service-Wide Downtime or Security Event)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Diagnostic Message</label>
+                    <textarea
+                      name="message"
+                      rows={4}
+                      placeholder="Please detail exactly what error message showed, or describe the defect so that our support engineers can correct it."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white text-slate-850 text-slate-800 leading-relaxed font-sans"
+                    ></textarea>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-slate-900 hover:bg-slate-950 text-white py-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-sm inline-flex items-center justify-center gap-1.5"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" /> Dispatch SLA Ticket
+                  </button>
+                </form>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

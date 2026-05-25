@@ -82,11 +82,11 @@ interface TenantQuota {
 
 export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSubTab }: SuperAdminModuleProps) {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing" | "specs"
+    "dashboard" | "hospitals" | "usage" | "finance" | "config" | "operations" | "support" | "onboarding" | "security" | "ai" | "landing" | "specs" | "staff"
   >("dashboard");
 
   useEffect(() => {
-    if (activeSubTab && ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing", "specs"].includes(activeSubTab)) {
+    if (activeSubTab && ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing", "specs", "staff"].includes(activeSubTab)) {
       setActiveTab(activeSubTab as any);
     }
   }, [activeSubTab]);
@@ -1218,7 +1218,7 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
 
             {/* TAB: SUPPORT DESK */}
             {activeTab === "support" && (
-              <SuperAdminSupport tenants={tenants} />
+              <SuperAdminSupport tenants={tenants} store={store} />
             )}
 
             {/* TAB: SECURITY & JIT */}
@@ -1345,6 +1345,227 @@ export function SuperAdminModule({ store, currentUser, activeSubTab, setActiveSu
             )}
 
             {/* TAB: SPECIFICATIONS LIBRARY */}
+            {activeTab === "specs" && (
+              <SuperAdminSpecs />
+            )}
+
+            {/* TAB: SUPER ADMIN STAFF DIRECTORY & RBAC */}
+            {activeTab === "staff" && (
+              <div className="space-y-6 animate-fadeIn text-left" id="saas_staff_tab_root">
+                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                  <div className="space-y-1.5 max-w-2xl">
+                    <span className="py-1 px-3 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold font-mono uppercase tracking-wider rounded-full border border-emerald-500/10 inline-block">
+                      🛡️ SaaS Platform Governance
+                    </span>
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">SaaS Command Center Roster</h2>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Onboard platform engineers, support crews, and billing specialists. Implement corporate security boundaries by assigning micro-module routing access using our standard SaaS RBAC Engine.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left column: Employee directory roster list (7 cols) */}
+                  <div className="lg:col-span-8 space-y-4">
+                    <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-2xs space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-850">Active Control Tower Operators</h3>
+                          <p className="text-[10px] text-slate-400 font-mono">List of corporate employees authorized to browse SaaS sub-modules.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {store.superAdminEmployees.map((emp) => (
+                          <div 
+                            key={emp.id}
+                            className="p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-slate-800 font-sans">{emp.name}</span>
+                                <span className="text-[9px] font-mono font-bold uppercase bg-slate-200/60 text-slate-600 px-1.5 py-0.5 rounded-full">
+                                  {emp.id}
+                                </span>
+                                <span className="text-[9px] font-mono font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                  {emp.department}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500">{emp.email} • <span className="font-semibold text-slate-600">{emp.role}</span></p>
+                              
+                              {/* Display Permitted Modules */}
+                              <div className="pt-2 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">Scopes:</span>
+                                {emp.permittedModules.map((mod) => (
+                                  <span key={mod} className="text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-150 px-1.5 py-0.5 rounded-md">
+                                    {mod}
+                                  </span>
+                                ))}
+                                {emp.permittedModules.length === 0 && (
+                                  <span className="text-[9px] font-mono font-medium text-rose-500 italic">No access assigned</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action Keys */}
+                            <div className="flex items-center gap-2">
+                              {/* Edit Modal / Expand Permissions inline */}
+                              <button
+                                onClick={() => {
+                                  const modulesList = ["dashboard", "hospitals", "usage", "finance", "config", "operations", "support", "onboarding", "security", "ai", "landing", "specs"];
+                                  const currentString = emp.permittedModules.join(",");
+                                  const prompted = prompt(
+                                    `Update RBAC permissions for ${emp.name}.\nAvailable modules: ${modulesList.join(", ")}\n\nCurrent permissions (comma-separated):`,
+                                    currentString
+                                  );
+                                  if (prompted !== null) {
+                                    const cleaned = prompted
+                                      .split(",")
+                                      .map(x => x.trim().toLowerCase())
+                                      .filter(x => modulesList.includes(x));
+                                    store.updateSuperAdminEmployeePermissions(emp.id, cleaned);
+                                    alert(`RBAC scopes updated successfully.`);
+                                  }
+                                }}
+                                className="px-3 py-1.5 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg cursor-pointer transition-colors"
+                              >
+                                Edit RBAC
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete ${emp.name} from the SaaS Command center roster?`)) {
+                                    store.removeSuperAdminEmployee(emp.id);
+                                    alert(`${emp.name} has been offboarded.`);
+                                  }
+                                }}
+                                className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border border-transparent hover:border-rose-200 cursor-pointer transition-colors"
+                                title="Offboard Operator"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {store.superAdminEmployees.length === 0 && (
+                          <div className="text-center py-8 text-slate-400 font-mono text-xs">
+                            No active SaaS control tower operators onboarded yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right side: Onboard operators (4 cols) */}
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-2xs space-y-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-850 font-sans">Onboard SaaS Operator</h3>
+                        <p className="text-[10px] text-slate-400 leading-normal font-mono">Create structural profiles and configure active SaaS role restrictions instantly.</p>
+                      </div>
+
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const form = e.currentTarget;
+                          const nameVal = (form.elements.namedItem("name") as HTMLInputElement).value;
+                          const emailVal = (form.elements.namedItem("email") as HTMLInputElement).value;
+                          const roleVal = (form.elements.namedItem("role") as HTMLSelectElement).value;
+                          const deptVal = (form.elements.namedItem("dept") as HTMLSelectElement).value;
+
+                          if (!nameVal || !emailVal) {
+                            alert("Please provide the staff operator name and workspace email.");
+                            return;
+                          }
+
+                          // Default permitted modules by department
+                          let modules: string[] = ["dashboard"];
+                          if (deptVal === "Customer Support") {
+                            modules = ["dashboard", "support", "onboarding"];
+                          } else if (deptVal === "Finance & Audit") {
+                            modules = ["dashboard", "finance", "usage"];
+                          } else if (deptVal === "Infrastructure & Security") {
+                            modules = ["dashboard", "security", "operations", "ai"];
+                          } else {
+                            modules = ["dashboard", "hospitals", "config", "specs"];
+                          }
+
+                          store.addSuperAdminEmployee({
+                            id: `sa-emp-${Math.floor(100 + Math.random() * 900)}`,
+                            name: nameVal,
+                            email: emailVal,
+                            role: roleVal,
+                            department: deptVal,
+                            permittedModules: modules,
+                            createdAt: new Date().toISOString(),
+                            active: true
+                          });
+
+                          form.reset();
+                          alert(`${nameVal} onboarded successfully! Default modules assigned based on department.`);
+                        }}
+                        className="space-y-4 text-left"
+                      >
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block font-sans">Operator Fullname</label>
+                          <input
+                            type="text"
+                            name="name"
+                            placeholder="e.g. Vikram Malhotra"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white text-slate-800"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block font-sans">Corporate Email address</label>
+                          <input
+                            type="email"
+                            name="email"
+                            placeholder="e.g. vikram@mediflow.io"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white text-slate-800"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block font-sans">Corporate Department</label>
+                          <select
+                            name="dept"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white text-slate-705 text-slate-700 font-medium"
+                          >
+                            <option value="Customer Support">Customer Support (Default: Support CRM, Dashboard)</option>
+                            <option value="Finance & Audit">Finance & Audit (Default: Pricing, Usage plans)</option>
+                            <option value="Infrastructure & Security">Infrastructure & Security (Default: Router Ingress, Security compliance)</option>
+                            <option value="Product & Operations">Product & Operations (Default: Tenant deployments, Specs)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block font-sans">Designated Tier/Role</label>
+                          <select
+                            name="role"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white text-slate-705 text-slate-700 font-medium"
+                          >
+                            <option value="Associate Engineer">Associate Support Engineer</option>
+                            <option value="Lead Specialist">SaaS Operations Team Lead</option>
+                            <option value="SaaS Billing Auditor">SaaS Billing Auditor</option>
+                            <option value="Security Officer">HIPAA Security Compliance Lead</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full bg-slate-900 hover:bg-slate-950 text-white font-semibold py-2.5 rounded-lg text-xs cursor-pointer shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Authorize & Onboard
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === "specs" && (
               <SuperAdminSpecs />
             )}

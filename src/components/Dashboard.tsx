@@ -20,7 +20,14 @@ import {
   HelpCircle, 
   Thermometer, 
   ChevronRight, 
-  Wind 
+  Wind,
+  Clock,
+  MessageSquare,
+  Send,
+  Star,
+  ShieldCheck,
+  X,
+  User
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { HIMSStore } from "../useHIMSStore";
@@ -31,9 +38,10 @@ interface DashboardProps {
   setActiveTab: (tab: string) => void;
   setSelectedPatientId: (id: string | null) => void;
   activeSubTab?: string;
+  currentUser?: { name: string; role: string };
 }
 
-export function Dashboard({ store, setActiveTab, setSelectedPatientId, activeSubTab = "overview" }: DashboardProps) {
+export function Dashboard({ store, setActiveTab, setSelectedPatientId, activeSubTab = "overview", currentUser }: DashboardProps) {
   const { patients, appointments, vitals, beds, admissions, medicines, billing, auditLogs, logVitals, createLog } = store;
 
   // Real-time animation simulator for telemetry readings
@@ -44,6 +52,54 @@ export function Dashboard({ store, setActiveTab, setSelectedPatientId, activeSub
     }, 3000);
     return () => clearInterval(timer);
   }, []);
+
+  // Staff Support Desk States
+  const [ticketSearch, setTicketSearch] = useState("");
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [showRaiseTicketModal, setShowRaiseTicketModal] = useState(false);
+  const [csatStarHover, setCsatStarHover] = useState<number | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  
+  const [newTicket, setNewTicket] = useState({
+    category: "General Bug" as any,
+    subject: "",
+    priority: "Medium" as any,
+    message: "",
+    employeeName: currentUser?.name || "Dr. Rajesh Kumar",
+    employeeEmail: "rajesh@metrogeneral.com"
+  });
+
+  const [replyMessage, setReplyMessage] = useState("");
+  const [ticketChatLogs, setTicketChatLogs] = useState<Record<string, { sender: string; text: string; time: string }[]>>({});
+
+  const handleSendReply = (ticketId: string) => {
+    if (!replyMessage.trim()) return;
+    const msg = {
+      sender: currentUser?.name || "Dr. Rajesh Kumar",
+      text: replyMessage,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setTicketChatLogs(prev => ({
+      ...prev,
+      [ticketId]: [...(prev[ticketId] || []), msg]
+    }));
+    setReplyMessage("");
+    
+    // Auto simulated response from assigned specialist in 1.2 seconds
+    const ticket = store.supportTickets.find(t => t.id === ticketId);
+    const assignedEng = ticket?.assignedEngineer || "Sarah Jenkins (Principal)";
+    setTimeout(() => {
+      const resp = {
+        sender: assignedEng,
+        text: `Thanks for the follow-up note. I am verifying your report with the central Cloud Run container logs and our clinical databases. Action remains prioritized.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setTicketChatLogs(prev => ({
+        ...prev,
+        [ticketId]: [...(prev[ticketId] || []), resp]
+      }));
+    }, 1200);
+  };
 
   // Compute metrics
   const activeAdmissions = admissions.filter((a) => a.status === "Admitted");
@@ -703,9 +759,569 @@ export function Dashboard({ store, setActiveTab, setSelectedPatientId, activeSub
     );
   }
 
-  // ----------------------------------------------------
-  // STANDARD HIMS OPERATIONS OVERVIEW VIEW (Default)
-  // ----------------------------------------------------
+  if (activeSubTab === "support") {
+    // Collect tickets for this tenant or general staff workspace
+    const hospitalName = store.hospitalProfile?.name || "Metro General Hospital Corp";
+    const userTickets = store.supportTickets.filter((t) => {
+      const tNameMatch = t.tenantName?.toLowerCase() === hospitalName.toLowerCase();
+      const empMatch = t.employeeName && currentUser && t.employeeName.toLowerCase() === currentUser.name.toLowerCase();
+      return tNameMatch || empMatch;
+    });
+
+    const filteredTickets = userTickets.filter((t) => {
+      if (!ticketSearch) return true;
+      const search = ticketSearch.toLowerCase();
+      return (
+        t.subject.toLowerCase().includes(search) ||
+        t.category.toLowerCase().includes(search) ||
+        t.id.toLowerCase().includes(search)
+      );
+    });
+
+    const selectedTicket = store.supportTickets.find((t) => t.id === selectedTicketId) || filteredTickets[0];
+
+    const handleSubmitTicket = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newTicket.subject.trim() || !newTicket.message.trim()) return;
+
+      const raised = store.raiseSupportTicket({
+        tenantName: hospitalName,
+        category: newTicket.category,
+        subject: newTicket.subject,
+        priority: newTicket.priority,
+        message: newTicket.message,
+        employeeName: newTicket.employeeName,
+        employeeEmail: newTicket.employeeEmail,
+      });
+
+      if (raised && raised.id) {
+        setSelectedTicketId(raised.id);
+      }
+      
+      setNewTicket({
+        category: "General Bug",
+        subject: "",
+        priority: "Medium",
+        message: "",
+        employeeName: currentUser?.name || "Dr. Rajesh Kumar",
+        employeeEmail: "rajesh@metrogeneral.com"
+      });
+      setShowRaiseTicketModal(false);
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    };
+
+    return (
+      <div className="space-y-6 animate-fadeIn text-left">
+        {/* Banner with status */}
+        <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-6 relative overflow-hidden" id="support_desk_portal_banner">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 right-12 w-48 h-48 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <span className="inline-flex items-center gap-1.5 py-1 px-3 bg-indigo-500/25 border border-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold uppercase rounded-full">
+                <HelpCircle className="w-3 h-3 text-indigo-400" /> Platinum Technical SLA Support Active
+              </span>
+              <h1 className="text-2xl font-sans font-medium tracking-tight text-slate-100">
+                Hospital Staff Help Desk & Support Portal
+              </h1>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Direct communication channel to the SaaS core engineering team. Submit issues about EMR systems, Pathology LIS connections, HIPAA compliance parameters, or billing gateways.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowRaiseTicketModal(true)}
+              className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold font-sans tracking-tight rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shrink-0 shadow-[0_4px_12px_rgba(16,185,129,0.2)]"
+              id="btn_raise_incident"
+            >
+              <Plus className="w-4 h-4" /> Raise Support Incident
+            </button>
+          </div>
+        </div>
+
+        {submitSuccess && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 text-emerald-900 shadow-sm text-xs">
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <strong className="font-bold block">Incident Successfully Registered</strong>
+              SLA tracking commenced. Designated specialist team alerted.
+            </div>
+          </div>
+        )}
+
+        {/* Splitscreen Workspace */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* LEFT: Ticket Queue */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-sm flex flex-col space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">Submitted Tickets</span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono">
+                  {userTickets.length} Total
+                </span>
+              </div>
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter tickets..."
+                  value={ticketSearch}
+                  onChange={(e) => setTicketSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-150 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Ticket List Queue */}
+              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                {filteredTickets.map((t) => {
+                  const isActive = selectedTicket?.id === t.id;
+                  
+                  const priorityColors = {
+                    Urgent: "bg-red-50 text-red-650 border-red-200 text-red-600",
+                    High: "bg-amber-50 text-amber-650 border-amber-200 text-amber-600",
+                    Medium: "bg-indigo-50 text-indigo-650 border-indigo-200 text-indigo-600",
+                    Low: "bg-slate-50 text-slate-600 border-slate-200 text-slate-500"
+                  };
+                  
+                  const statusColors = {
+                    Open: "bg-slate-100 text-slate-800 border-slate-250 text-slate-600",
+                    Assigned: "bg-blue-50 text-blue-850 border-blue-200 text-blue-650",
+                    Resolving: "bg-orange-50 text-orange-850 border-orange-200 text-orange-600",
+                    Closed: "bg-emerald-50 text-emerald-850 border-emerald-250 text-emerald-600"
+                  };
+
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTicketId(t.id)}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col space-y-2 cursor-pointer ${
+                        isActive
+                          ? "bg-slate-50 border-slate-300 shadow-sm"
+                          : "bg-white hover:bg-slate-50/50 border-slate-150"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-900 truncate leading-tight">
+                          {t.subject}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono shrink-0">
+                          #{t.id}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[9px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-150">
+                          {t.category}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded border ${priorityColors[t.priority] || "bg-slate-100 text-slate-750 border-slate-205"}`}>
+                          {t.priority}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded border ${statusColors[t.status] || "bg-slate-100 text-slate-750 border-slate-205"}`}>
+                          {t.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1.5 border-t border-slate-100 mt-1">
+                        <span className="truncate">By: {t.employeeName || "Hospital Staff"}</span>
+                        <span>{t.status === "Closed" ? "Resolved" : `${t.slaMinutesRemaining ?? 45}m SLA`}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {filteredTickets.length === 0 && (
+                  <div className="text-center py-12 text-slate-400 font-sans text-xs">
+                    No matching support tickets found.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: Ticket Details & Workspace */}
+          <div className="lg:col-span-8">
+            {selectedTicket ? (
+              <div className="bg-white border border-slate-150 rounded-2xl shadow-sm flex flex-col min-h-[480px]">
+                {/* Selected Title Bar */}
+                <div className="p-6 border-b border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-bold uppercase">
+                        #{selectedTicket.id}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(selectedTicket.createdTime).toLocaleString()}
+                      </span>
+                    </div>
+                    <h2 className="text-md sm:text-lg font-bold text-slate-900 leading-tight">
+                      {selectedTicket.subject}
+                    </h2>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] bg-slate-100 text-slate-800 px-3 py-1 rounded border border-slate-200 font-mono font-extrabold uppercase">
+                      STATUS: {selectedTicket.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Grid Metadata */}
+                <div className="grid grid-cols-2 md:grid-cols-4 bg-slate-50/50 border-b border-slate-150 p-4 text-xs">
+                  <div className="p-2 border-r border-slate-150/40">
+                    <span className="text-slate-400 block text-[9px] font-mono uppercase font-bold">Category</span>
+                    <strong className="text-slate-700 font-semibold">{selectedTicket.category}</strong>
+                  </div>
+                  <div className="p-2 border-r border-slate-150/40">
+                    <span className="text-slate-400 block text-[9px] font-mono uppercase font-bold">Priority</span>
+                    <strong className="text-slate-800 font-semibold">{selectedTicket.priority}</strong>
+                  </div>
+                  <div className="p-2 border-r border-slate-150/40">
+                    <span className="text-slate-400 block text-[9px] font-mono uppercase font-bold">Technical Lead</span>
+                    <strong className="text-indigo-600 font-semibold">{selectedTicket.assignedEngineer || "Unassigned Specialist"}</strong>
+                  </div>
+                  <div className="p-2">
+                    <span className="text-slate-400 block text-[9px] font-mono uppercase font-bold">SLA Guarantee</span>
+                    <strong className="text-slate-800 font-mono font-bold">
+                      {selectedTicket.status === "Closed" ? (
+                        <span className="text-emerald-600">Satisfied</span>
+                      ) : (
+                        `${selectedTicket.slaMinutesRemaining ?? 180} mins`
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* SLA Milestones Live Tracker */}
+                <div className="p-5 border-b border-slate-100">
+                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold block mb-3">
+                    SLA Live Execution Diagnostics
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-lg">
+                      <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-slate-800">Registered</span>
+                        <span className="text-[9px] text-slate-400">Portal received</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-lg">
+                      {selectedTicket.assignedEngineer ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-indigo-500 animate-pulse shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className="font-bold block text-slate-800">Dispatched</span>
+                        <span className="text-[9px] text-slate-400 truncate block max-w-[110px]">
+                          {selectedTicket.assignedEngineer ? "Engineer assigned" : "Routing queues..."}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-lg">
+                      {selectedTicket.status === "Resolving" || selectedTicket.status === "Closed" ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : selectedTicket.assignedEngineer ? (
+                        <Activity className="w-4 h-4 text-amber-550 text-amber-600 animate-pulse shrink-0 mt-0.5" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className="font-bold block text-slate-800">Diagnosis</span>
+                        <span className="text-[9px] text-slate-400">Telemetry scan active</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-lg">
+                      {selectedTicket.status === "Closed" ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <Shield className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className="font-bold block text-slate-800">Resolved</span>
+                        <span className="text-[9px] text-slate-400">Gateways validated</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Communication History Scroll */}
+                <div className="flex-1 p-6 space-y-4 max-h-[300px] overflow-y-auto bg-slate-50/20">
+                  {/* Original message */}
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-indigo-50 border border-indigo-105 text-indigo-600 rounded-lg shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-baseline justify-between text-[10px]">
+                        <span className="font-bold text-slate-700">{selectedTicket.employeeName || "Hospital Staff"}</span>
+                        <span className="text-slate-400 font-mono">Original Message</span>
+                      </div>
+                      <div className="p-3.5 bg-white border border-slate-150 rounded-xl text-slate-700 leading-relaxed max-w-[90%] font-normal text-xs">
+                        {selectedTicket.message}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Simulated reply */}
+                  {selectedTicket.assignedEngineer && (
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-lg shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-baseline justify-between text-[10px]">
+                          <span className="font-bold text-slate-700">{selectedTicket.assignedEngineer}</span>
+                          <span className="text-slate-400 font-mono">Lead Engineer</span>
+                        </div>
+                        <div className="p-3.5 bg-white border border-emerald-100 shadow-sm rounded-xl text-slate-750 leading-relaxed max-w-[90%] font-normal text-xs">
+                          {selectedTicket.status === "Closed" ? (
+                            <span>
+                              Our technical lead has validated this incident. We have recycled the active cache systems on our Cloud Run clusters and verified that the EMR diagnostics handshake completes in &lt;120ms. Please rate this resolution below.
+                            </span>
+                          ) : (
+                            <span>
+                              Hello, I have initiated an active telemetry diagnostics log scan on your local database adapters. We are analyzing the request latency and will keep this ticket updated closely. Let us know if you have additional logs to add.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* User follow-up chat messages */}
+                  {ticketChatLogs[selectedTicket.id]?.map((msg, idx) => {
+                    const isStaff = msg.sender !== selectedTicket.assignedEngineer;
+                    return (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg shrink-0 ${isStaff ? "bg-slate-100 text-slate-600" : "bg-emerald-50 border border-emerald-100 text-emerald-600"}`}>
+                          {isStaff ? <User className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                        </div>
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-baseline justify-between text-[10px]">
+                            <span className="font-bold text-slate-700">{msg.sender}</span>
+                            <span className="text-slate-400 font-mono">{msg.time}</span>
+                          </div>
+                          <div className="p-3 bg-white border border-slate-150 rounded-xl text-slate-750 leading-relaxed max-w-[90%] font-normal text-xs">
+                            {msg.text}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bottom Input / Star Rating area */}
+                <div className="p-4 bg-white border-t border-slate-150 rounded-b-2xl">
+                  {selectedTicket.status === "Closed" ? (
+                    <div className="text-center p-4 bg-slate-50 border border-dashed border-slate-205 rounded-xl space-y-3">
+                      <div>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-mono font-bold tracking-wide uppercase">
+                          Incident Resolved & Closed
+                        </span>
+                        <h3 className="text-xs font-bold text-slate-900 mt-2 max-w-sm mx-auto">
+                          How would you rate the speed and execution of this SLA resolution?
+                        </h3>
+                      </div>
+                      
+                      {/* Interactive Stars */}
+                      <div className="flex items-center justify-center gap-1.5 py-1">
+                        {[1, 2, 3, 4, 5].map((starValue) => {
+                          const currentScore = selectedTicket.csatScore || 0;
+                          const fillGold = csatStarHover !== null ? starValue <= csatStarHover : starValue <= currentScore;
+                          return (
+                            <button
+                              key={starValue}
+                              onMouseEnter={() => setCsatStarHover(starValue)}
+                              onMouseLeave={() => setCsatStarHover(null)}
+                              onClick={() => {
+                                store.updateSupportTicket(selectedTicket.id, { csatScore: starValue });
+                              }}
+                              className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                              title={`Rate ${starValue} Stars`}
+                            >
+                              <Star className={`w-6 h-6 stroke-[2] ${fillGold ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        {selectedTicket.csatScore ? (
+                          <span>Thanks for your rating: <strong className="text-amber-500 font-extrabold">{selectedTicket.csatScore}/5 Stars</strong>. Handshake logged.</span>
+                        ) : (
+                          <span>Hover and select stars to log CSAT performance metrics.</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={replyMessage}
+                        onChange={(e) => setReplyMessage(e.target.value)}
+                        placeholder="Provide details or logs directly to the technical team..."
+                        className="flex-1 bg-slate-50 border border-slate-150 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSendReply(selectedTicket.id);
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSendReply(selectedTicket.id)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg p-2 px-4 text-xs flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm shrink-0"
+                      >
+                        <span>Send Note</span> <Send className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center text-slate-400 min-h-[480px] flex flex-col items-center justify-center space-y-4 shadow-sm">
+                <HelpCircle className="w-12 h-12 text-slate-205" />
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-800 text-xs uppercase font-mono tracking-wider">Help Desk Workspace Empty</h3>
+                  <p className="text-xs max-w-sm font-sans">
+                    Submit a support ticket or choose an existing incident on the left queue to check real-time SLA metrics.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Raise Incident modal dialog */}
+        {showRaiseTicketModal && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fadeIn text-slate-800">
+              <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-indigo-400" />
+                  <span className="font-sans font-medium text-xs font-bold uppercase tracking-wider">Raise Technical incident</span>
+                </div>
+                <button
+                  onClick={() => setShowRaiseTicketModal(false)}
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-450 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitTicket} className="p-6 space-y-4 text-left">
+                {/* Subject */}
+                <div className="space-y-1 text-xs">
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Problem Subject</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Provide a quick summary of the technical incident..."
+                    value={newTicket.subject}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-normal"
+                  />
+                </div>
+
+                {/* Category & Priority */}
+                <div className="grid grid-cols-2 gap-4 text-xs font-normal">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Subsystem Category</label>
+                    <select
+                      value={newTicket.category}
+                      onChange={(e) => setNewTicket(prev => ({ ...prev, category: e.target.value as any }))}
+                      className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg font-normal text-xs text-slate-800"
+                    >
+                      <option value="General Bug">General Bug (Diagnostic UI)</option>
+                      <option value="Billing">Billing gateway (TPA checks)</option>
+                      <option value="LIS Connection">Pathology LIS Connection</option>
+                      <option value="HIPAA Compliance">HIPAA encryption audit</option>
+                      <option value="EMR Crash">EMR server failures</option>
+                      <option value="Access Key Issues">Access & RBAC credentials</option>
+                      <option value="Service Offline">Clinical systems latency</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Severity Priority</label>
+                    <select
+                      value={newTicket.priority}
+                      onChange={(e) => setNewTicket(prev => ({ ...prev, priority: e.target.value as any }))}
+                      className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg font-normal text-xs text-slate-800"
+                    >
+                      <option value="Low">Low (Inquiry)</option>
+                      <option value="Medium">Medium (Operational sluggishness)</option>
+                      <option value="High">High (Subsystem block)</option>
+                      <option value="Urgent">Urgent (Clinical platform outage)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Reporter Metadata */}
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold">Reporter Staff member</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={newTicket.employeeName}
+                      className="w-full bg-slate-100 border border-slate-200 p-2 rounded-lg text-slate-500 cursor-not-allowed font-medium text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Alert Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={newTicket.employeeEmail}
+                      onChange={(e) => setNewTicket(prev => ({ ...prev, employeeEmail: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Explanation */}
+                <div className="space-y-1 text-xs">
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Full Explanation & Logs</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Verify step-by-step commands or actions that triggered the error..."
+                    value={newTicket.message}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, message: e.target.value }))}
+                    className="w-full bg-slate-55 bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-550 focus:border-indigo-500 focus:bg-white text-xs font-normal"
+                  />
+                </div>
+
+                {/* Modal footer actions */}
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-150">
+                  <button
+                    type="button"
+                    onClick={() => setShowRaiseTicketModal(false)}
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-650 hover:bg-indigo-600 bg-indigo-600 text-white text-xs font-bold rounded-lg cursor-pointer shadow-sm font-sans"
+                  >
+                    Register Incident
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Banner / HIMS Welcome */}

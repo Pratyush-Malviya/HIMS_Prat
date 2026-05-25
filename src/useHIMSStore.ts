@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole, LandingPageConfig, PainPointSlide, FeatureModule, HospitalProfile } from "./types";
+import { Patient, Appointment, VitalSign, Consultation, LabTest, Medicine, Bed, Admission, BillingInvoice, AuditLog, NotificationAlert, Employee, CustomRole, LandingPageConfig, PainPointSlide, FeatureModule, HospitalProfile, SupportTicket, SuperAdminEmployee } from "./types";
 import { db } from "./firebase";
 import { collection, getDocs, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 
@@ -15,6 +15,91 @@ import {
   initialConsultations,
   initialAuditLogs
 } from "./mockData";
+
+const initialSupportTickets: SupportTicket[] = [
+  {
+    id: "TKT-3091",
+    tenantName: "Metro General Hospital Corp",
+    category: "LIS Connection",
+    subject: "Blood analyzer machine serial sync packet loss",
+    status: "Open",
+    priority: "Urgent",
+    assignedEngineer: "Alex Thompson (AI Agent)",
+    slaMinutesRemaining: 12,
+    message: "The Sysmex pathology machine fails to transmit automated CBC outcomes to OPD patient directories. Packets drop at egress point.",
+    createdTime: "2026-05-23T11:40:00Z"
+  },
+  {
+    id: "TKT-1082",
+    tenantName: "Lotus Kids & Pediatric Clinic",
+    category: "Billing",
+    subject: "Insurance pre-auth document rejection payload mismatched",
+    status: "Assigned",
+    priority: "High",
+    assignedEngineer: "Sarah Jenkins",
+    slaMinutesRemaining: 45,
+    message: "HDFC TPA integration returns empty response when validating pediatric orthopedic bundle rates under standard plan presets.",
+    createdTime: "2026-05-23T12:15:00Z"
+  },
+  {
+    id: "TKT-4401",
+    tenantName: "MaxCare Specialty & Cardiac Unit",
+    category: "Access Key Issues",
+    subject: "Admitting physician proxy access expired early",
+    status: "Resolving",
+    priority: "Medium",
+    assignedEngineer: "Priya Nair",
+    slaMinutesRemaining: 180,
+    message: "Chief cardiologist's proxy credential keys deactivated 4 hours before the shift roster ended. Needs security override.",
+    createdTime: "2026-05-23T09:00:00Z"
+  },
+  {
+    id: "TKT-9912",
+    tenantName: "National Health Base Foundation",
+    category: "HIPAA Compliance",
+    subject: "Audit logs export failing under custom format rules",
+    status: "Closed",
+    priority: "Medium",
+    assignedEngineer: "Sarah Jenkins",
+    slaMinutesRemaining: 0,
+    message: "Requesting a clean CSV output in compliance with HIPAA Business Associate review guidelines.",
+    createdTime: "2026-05-22T14:30:00Z",
+    csatScore: 5
+  }
+];
+
+const initialSuperAdminEmployees: SuperAdminEmployee[] = [
+  {
+    id: "sa-emp-1",
+    name: "Vikram Malhotra",
+    email: "vikram@mediflow.io",
+    role: "Support Team Lead",
+    department: "Customer Support",
+    permittedModules: ["support", "dashboard"],
+    createdAt: "2026-01-10T08:00:00Z",
+    active: true
+  },
+  {
+    id: "sa-emp-2",
+    name: "Sarah Jenkins",
+    email: "sarah.j@mediflow.io",
+    role: "Senior Security Specialist",
+    department: "Infrastructure & Security",
+    permittedModules: ["security", "operations", "dashboard"],
+    createdAt: "2026-02-15T09:30:00Z",
+    active: true
+  },
+  {
+    id: "sa-emp-3",
+    name: "Rohan Advani",
+    email: "rohan@mediflow.io",
+    role: "SaaS Financial Analyst",
+    department: "Finance & Sales",
+    permittedModules: ["finance", "usage", "dashboard"],
+    createdAt: "2026-03-22T10:45:00Z",
+    active: true
+  }
+];
 
 const STORAGE_KEY = "hims_database_state_v1";
 
@@ -281,6 +366,8 @@ export function useHIMSStore() {
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [landingPageConfig, setLandingPageConfig] = useState<LandingPageConfig>(defaultLandingPageConfig);
   const [hospitalProfile, setHospitalProfile] = useState<HospitalProfile>(initialHospitalProfile);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [superAdminEmployees, setSuperAdminEmployees] = useState<SuperAdminEmployee[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Initialize and load state
@@ -304,6 +391,8 @@ export function useHIMSStore() {
         setCustomRoles(parsed.customRoles || initialCustomRoles);
         setLandingPageConfig(parsed.landingPageConfig || defaultLandingPageConfig);
         setHospitalProfile(parsed.hospitalProfile || initialHospitalProfile);
+        setSupportTickets(parsed.supportTickets || initialSupportTickets);
+        setSuperAdminEmployees(parsed.superAdminEmployees || initialSuperAdminEmployees);
       } else {
         // Load defaults
         setPatients(initialPatients);
@@ -321,6 +410,8 @@ export function useHIMSStore() {
         setCustomRoles(initialCustomRoles);
         setLandingPageConfig(defaultLandingPageConfig);
         setHospitalProfile(initialHospitalProfile);
+        setSupportTickets(initialSupportTickets);
+        setSuperAdminEmployees(initialSuperAdminEmployees);
  
         localStorage.setItem(
           STORAGE_KEY,
@@ -339,7 +430,9 @@ export function useHIMSStore() {
             employees: initialEmployees,
             customRoles: initialCustomRoles,
             landingPageConfig: defaultLandingPageConfig,
-            hospitalProfile: initialHospitalProfile
+            hospitalProfile: initialHospitalProfile,
+            supportTickets: initialSupportTickets,
+            superAdminEmployees: initialSuperAdminEmployees
           })
         );
       }
@@ -367,6 +460,8 @@ export function useHIMSStore() {
     customRoles?: CustomRole[];
     landingPageConfig?: LandingPageConfig;
     hospitalProfile?: HospitalProfile;
+    supportTickets?: SupportTicket[];
+    superAdminEmployees?: SuperAdminEmployee[];
   }) => {
     const currentState = {
       patients: updated.patients ?? patients,
@@ -383,7 +478,9 @@ export function useHIMSStore() {
       employees: updated.employees ?? employees,
       customRoles: updated.customRoles ?? customRoles,
       landingPageConfig: updated.landingPageConfig ?? landingPageConfig,
-      hospitalProfile: updated.hospitalProfile ?? hospitalProfile
+      hospitalProfile: updated.hospitalProfile ?? hospitalProfile,
+      supportTickets: updated.supportTickets ?? supportTickets,
+      superAdminEmployees: updated.superAdminEmployees ?? superAdminEmployees
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
@@ -403,6 +500,8 @@ export function useHIMSStore() {
     if (updated.customRoles) setCustomRoles(updated.customRoles);
     if (updated.landingPageConfig) setLandingPageConfig(updated.landingPageConfig);
     if (updated.hospitalProfile) setHospitalProfile(updated.hospitalProfile);
+    if (updated.supportTickets) setSupportTickets(updated.supportTickets);
+    if (updated.superAdminEmployees) setSuperAdminEmployees(updated.superAdminEmployees);
   };
 
   const updateHospitalProfile = (profileUpdates: Partial<HospitalProfile>) => {
@@ -909,6 +1008,24 @@ export function useHIMSStore() {
     }
   };
 
+  const toggleEmployeeOnCall = async (id: string) => {
+    const emp = employees.find((e) => e.id === id);
+    const nextOnCall = emp ? !emp.isOnCall : true;
+    const updated = employees.map((e) => e.id === id ? { ...e, isOnCall: nextOnCall } : e);
+    saveState({ employees: updated });
+    
+    if (emp) {
+      const nextStateText = nextOnCall ? "On-Call" : "Available";
+      createLog("Admin Amit Joshi", "Admin", "Toggle Staff On-Call Status", "Human Resources", `Updated ${emp.name} (${emp.role}) availability status to: ${nextStateText}.`);
+    }
+
+    try {
+      await updateDoc(doc(db, "employees", id), { isOnCall: nextOnCall });
+    } catch (err) {
+      console.warn("Firestore persist warning on on-call toggle:", err);
+    }
+  };
+
   const addCustomRole = async (role: CustomRole) => {
     const updated = [...customRoles, role];
     saveState({ customRoles: updated });
@@ -983,6 +1100,99 @@ export function useHIMSStore() {
     setAuditLogs([log]);
   };
 
+  const raiseSupportTicket = (tPayload: Omit<SupportTicket, "id" | "createdTime" | "status" | "assignedEngineer" | "slaMinutesRemaining">) => {
+    const newId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newTicket: SupportTicket = {
+      ...tPayload,
+      id: newId,
+      status: "Open",
+      assignedEngineer: "Alex Thompson (AI Agent)",
+      slaMinutesRemaining: 180,
+      createdTime: new Date().toISOString()
+    };
+    const updated = [newTicket, ...supportTickets];
+    saveState({ supportTickets: updated });
+    
+    createLog(
+      tPayload.employeeName || "Hospital Admin",
+      "Hospital Member",
+      "Raise Support Ticket",
+      "Support Desk Interface",
+      `Employee raised a ticket: [${newId}] ${tPayload.subject} under Category: ${tPayload.category}.`
+    );
+    return newTicket;
+  };
+
+  const updateSupportTicket = (id: string, updates: Partial<SupportTicket>) => {
+    const updated = supportTickets.map(t => t.id === id ? { ...t, ...updates } : t);
+    saveState({ supportTickets: updated });
+    createLog(
+      "SaaS Super Admin",
+      "System Master",
+      "Update Support Ticket",
+      "Support CRM Desk",
+      `Modified support ticket parameters for ${id} (Status: ${updates.status || 'No status change'}).`
+    );
+  };
+
+  const addSuperAdminEmployee = (emp: SuperAdminEmployee) => {
+    const updated = [emp, ...superAdminEmployees];
+    saveState({ superAdminEmployees: updated });
+    createLog(
+      "SaaS Super Admin",
+      "Super Admin",
+      "Onboard Super Staff",
+      "Platform Admin Panel",
+      `Onboarded SaaS team employee: ${emp.name} (${emp.role}) inside ${emp.department} department.`
+    );
+  };
+
+  const removeSuperAdminEmployee = (id: string) => {
+    const emp = superAdminEmployees.find(e => e.id === id);
+    const updated = superAdminEmployees.filter(e => e.id !== id);
+    saveState({ superAdminEmployees: updated });
+    if (emp) {
+      createLog(
+        "SaaS Super Admin",
+        "Super Admin",
+        "Offboard Super Staff",
+        "Platform Admin Panel",
+        `Offboarded SaaS employee ${emp.name} (${emp.role}) and revoked SaaS portal tools access.`
+      );
+    }
+  };
+
+  const updateSuperAdminEmployeePermissions = (id: string, permittedModules: string[]) => {
+    const updated = superAdminEmployees.map(e => e.id === id ? { ...e, permittedModules } : e);
+    saveState({ superAdminEmployees: updated });
+    const emp = superAdminEmployees.find(e => e.id === id);
+    if (emp) {
+      createLog(
+        "SaaS Super Admin",
+        "Super Admin",
+        "Update Super Staff Permissions",
+        "Platform Admin Panel",
+        `Mutated Super Admin RBAC scopes for ${emp.name} to permitted subtabs: [${permittedModules.join(", ")}].`
+      );
+    }
+  };
+
+  const importBulkData = (type: "patients" | "medicines" | "billing", data: any[]) => {
+    if (type === "patients") {
+      const updated = [...patients, ...data];
+      saveState({ patients: updated });
+      createLog("SaaS Data Migrator", "Admin", `Bulk Migrate Excel Patients`, "Database Admin Desk", `Successfully appended ${data.length} patient records from Excel Sheet.`);
+    } else if (type === "medicines") {
+      const updated = [...medicines, ...data];
+      saveState({ medicines: updated });
+      createLog("SaaS Data Migrator", "Admin", `Bulk Migrate Excel Medicines`, "Database Admin Desk", `Successfully appended ${data.length} medicine stock details from Excel Sheet.`);
+    } else if (type === "billing") {
+      const updated = [...billing, ...data];
+      saveState({ billing: updated });
+      createLog("SaaS Data Migrator", "Admin", `Bulk Migrate Excel Invoices`, "Database Admin Desk", `Successfully appended ${data.length} billing files from Excel Sheet.`);
+    }
+  };
+
   return {
     patients,
     appointments,
@@ -1018,6 +1228,7 @@ export function useHIMSStore() {
     onboardEmployee,
     updateEmployeePermissions,
     removeEmployee,
+    toggleEmployeeOnCall,
     customRoles,
     addCustomRole,
     removeCustomRole,
@@ -1025,7 +1236,15 @@ export function useHIMSStore() {
     landingPageConfig,
     updateLandingPageConfig,
     hospitalProfile,
-    updateHospitalProfile
+    updateHospitalProfile,
+    supportTickets,
+    superAdminEmployees,
+    raiseSupportTicket,
+    updateSupportTicket,
+    addSuperAdminEmployee,
+    removeSuperAdminEmployee,
+    updateSuperAdminEmployeePermissions,
+    importBulkData
   };
 }
 export type HIMSStore = ReturnType<typeof useHIMSStore>;

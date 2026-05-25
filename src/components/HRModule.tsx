@@ -25,7 +25,7 @@ interface HRModuleProps {
 }
 
 export function HRModule({ store }: HRModuleProps) {
-  const { employees, onboardEmployee, removeEmployee, updateEmployeePermissions, customRoles } = store;
+  const { employees, onboardEmployee, removeEmployee, updateEmployeePermissions, customRoles, toggleEmployeeOnCall } = store;
   const [activeTab, setActiveTab] = useState<"directory" | "shifts" | "payroll" | "rbac">("directory");
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -43,14 +43,21 @@ export function HRModule({ store }: HRModuleProps) {
     permittedModules: ["dashboard", "opd"]
   });
 
+  const [statusFilter, setStatusFilter] = useState<"all" | "on-call" | "available">("all");
+
   // Filter employees
   const filteredEmployees = useMemo(() => {
-    return (employees || []).filter(emp => 
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.department.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [employees, searchQuery]);
+    return (employees || []).filter(emp => {
+      const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.department.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!matchesSearch) return false;
+      if (statusFilter === "on-call") return !!emp.isOnCall;
+      if (statusFilter === "available") return !emp.isOnCall;
+      return true;
+    });
+  }, [employees, searchQuery, statusFilter]);
 
   // HR Payroll statistics
   const payrollStats = useMemo(() => {
@@ -83,7 +90,8 @@ export function HRModule({ store }: HRModuleProps) {
       shiftPattern: newEmp.shiftPattern,
       attendanceStatus: "On-Duty",
       commissionPct: Number(newEmp.commissionPct) || 0,
-      permittedModules: newEmp.permittedModules
+      permittedModules: newEmp.permittedModules,
+      isOnCall: false
     };
 
     store.onboardEmployee(onboardData);
@@ -140,7 +148,13 @@ export function HRModule({ store }: HRModuleProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-100 p-4 rounded-2xl space-y-1 shadow-xs">
           <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">Total Enlisted Staff</span>
-          <div className="text-2xl font-bold text-slate-950 font-sans">{payrollStats.totalEmployees}</div>
+          <div className="text-2xl font-bold text-slate-950 font-sans flex items-center justify-between">
+            <span>{payrollStats.totalEmployees}</span>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+              {employees.filter(e => e.isOnCall).length} On-Call
+            </span>
+          </div>
           <p className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3 shrink-0" />
             100% HIPAA compliant entries
@@ -222,18 +236,60 @@ export function HRModule({ store }: HRModuleProps) {
       {/* A. Employee Directory Tab */}
       {activeTab === "directory" && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-xl shadow-xs">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Search staff by name, role, department..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs outline-hidden focus:border-indigo-500"
-              />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-xl shadow-xs">
+            <div className="flex flex-col sm:flex-row gap-2 flex-1 max-w-2xl">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search staff by name, role, department..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs outline-hidden focus:border-indigo-500 font-normal"
+                />
+              </div>
+
+              {/* On-Call & Assistance filter buttons */}
+              <div className="flex items-center gap-1 border border-slate-150 rounded-lg p-1 bg-slate-50 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("all")}
+                  className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer uppercase ${
+                    statusFilter === "all"
+                      ? "bg-white text-slate-850 shadow-xs"
+                      : "text-slate-450 text-slate-500 hover:text-slate-805"
+                  }`}
+                >
+                  All Staff
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("on-call")}
+                  className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer uppercase flex items-center gap-1.5 ${
+                    statusFilter === "on-call"
+                      ? "bg-amber-500 text-white shadow-xs"
+                      : "text-slate-500 hover:text-amber-600"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === "on-call" ? "bg-white" : "bg-amber-500 animate-ping"}`}></span>
+                  On-Call Assistance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("available")}
+                  className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer uppercase flex items-center gap-1.5 ${
+                    statusFilter === "available"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-slate-500 hover:text-emerald-600"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === "available" ? "bg-white" : "bg-emerald-500"}`}></span>
+                  Available
+                </button>
+              </div>
             </div>
-            <div className="text-slate-400 text-[10px] font-mono uppercase tracking-wider">
+
+            <div className="text-slate-400 text-[10px] font-mono uppercase tracking-wider shrink-0">
               Displaying {filteredEmployees.length} of {employees.length} officers
             </div>
           </div>
@@ -247,6 +303,7 @@ export function HRModule({ store }: HRModuleProps) {
                     <th className="p-4">Specialty & Dept</th>
                     <th className="p-4">Joining Date</th>
                     <th className="p-4">Contact Info</th>
+                    <th className="p-4">Assistance Status (On-Call)</th>
                     <th className="p-4">Role Clearance</th>
                     <th className="p-4 text-center">Actions</th>
                   </tr>
@@ -291,6 +348,41 @@ export function HRModule({ store }: HRModuleProps) {
                       </td>
 
                       <td className="p-4">
+                        <div className="flex items-center gap-2.5">
+                          {/* iOS style toggle button */}
+                          <button
+                            type="button"
+                            onClick={() => toggleEmployeeOnCall(emp.id)}
+                            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-250 ease-in-out focus:outline-hidden ${
+                              emp.isOnCall ? "bg-amber-500" : "bg-emerald-500"
+                            }`}
+                            id={`btn_toggle_availability_${emp.id}`}
+                            title={emp.isOnCall ? "Set status to Available" : "Set status to On-Call"}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-250 ease-in-out ${
+                                emp.isOnCall ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                          
+                          {/* Assistance Badge status indicator */}
+                          <div className="flex flex-col">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${
+                                emp.isOnCall
+                                  ? "bg-amber-50 border border-amber-200 text-amber-700"
+                                  : "bg-emerald-50 border border-emerald-250 text-emerald-700"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${emp.isOnCall ? "bg-amber-500 animate-ping" : "bg-emerald-555 bg-emerald-500"}`}></span>
+                              {emp.isOnCall ? "On-Call" : "Available"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-4">
                         <div className="flex flex-wrap gap-1 max-w-[170px]">
                           {emp.permittedModules.map((m) => (
                             <span key={m} className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[9px] text-indigo-700 font-semibold font-mono uppercase uppercase">
@@ -316,7 +408,7 @@ export function HRModule({ store }: HRModuleProps) {
                   
                   {filteredEmployees.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                      <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
                         No employees found matching the search criteria.
                       </td>
                     </tr>
